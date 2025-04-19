@@ -1,3 +1,4 @@
+use eyre::ContextCompat;
 use tokio::{
     fs::File,
     io::{AsyncReadExt, AsyncWriteExt},
@@ -8,16 +9,26 @@ mod code_gen;
 mod test;
 
 #[derive(clap::Parser, Debug)]
-#[command(version, about, long_about = None)]
+#[command(version, about, long_about)]
 struct Args {
+    /// Path to translate sql files to rust
     path: std::path::PathBuf,
+
+    /// Database connection url.
+    /// Can also be pass as env "POSTGRES_URL"
+    #[arg(short = 'u', long, value_name = "URL")]
+    postgres_url: Option<String>,
 }
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
+    env_logger::init();
     let cli: Args = clap::Parser::parse();
-    let url = "postgres://postgres:bipa@localhost/sqlc";
-    let (client, connection) = tokio_postgres::connect(url, tokio_postgres::NoTls).await?;
+    let url = cli
+        .postgres_url
+        .or(std::env::var("POSTGRES_URL").ok())
+        .context("Missing postgres_url")?;
+    let (client, connection) = tokio_postgres::connect(&url, tokio_postgres::NoTls).await?;
 
     tokio::spawn(async move {
         if let Err(e) = connection.await {
@@ -25,9 +36,23 @@ async fn main() -> eyre::Result<()> {
         }
     });
 
-    let mut sql = File::open(&cli.path).await?;
-    let mut rs = File::open(cli.path.with_extension("rs")).await?;
-    translate_file(&client, &mut sql, &mut rs).await
+    let futs = walkdir::WalkDir::new(cli.path)
+        .into_iter()
+        .map(|entry| async {
+            let entry = entry?;
+            let path = entry.path();
+            if path.extension().is_none_or(|e| e != "sql") || !entry.metadata()?.is_file() {
+                log::debug!("skipping {path:?}");
+                return Ok(());
+            }
+            log::info!("translating {path:?}");
+            let mut sql = File::open(&path).await?;
+            let mut rs = File::create(path.with_extension("rs")).await?;
+            translate_file(&client, &mut sql, &mut rs).await
+        });
+    futures::future::try_join_all(futs).await?;
+
+    Ok(())
 }
 
 async fn translate_file(

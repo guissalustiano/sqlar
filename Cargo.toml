@@ -6,8 +6,10 @@ edition = "2024"
 [dependencies]
 clap = { version = "4.5.37", default-features = false, features = ["color", "derive", "std"] }
 convert_case = { version = "0.7.1", default-features = false }
+env_logger = { version = "0.11.8", default-features = false, features = ["auto-color", "color", "humantime"] }
 eyre = { version = "0.6.12", default-features = false, features = ["auto-install"] }
 futures = { version = "0.3.31", default-features = false }
+log = { version = "0.4.27", default-features = false, features = ["std"] }
 prettyplease = { version = "0.2.32", default-features = false }
 proc-macro2 = { version = "1.0.93", default-features = false }
 quote = { version = "1.0.38", default-features = false }
@@ -15,6 +17,7 @@ sqlparser = { version = "0.55.0", default-features = false, features = ["recursi
 syn = { version = "2.0.100", default-features = false, features = ["parsing"] }
 tokio = { version = "1.44.2", default-features = false, features = ["fs", "macros", "rt", "rt-multi-thread"] }
 tokio-postgres = { version = "0.7.13", features = ["array-impls", "runtime"], default-features = false }
+walkdir = { version = "2.5.0", default-features = false }
 
 [dev-dependencies]
 insta = { version = "1.42.2", default-features = false }
