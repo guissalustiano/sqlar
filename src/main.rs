@@ -4,6 +4,7 @@ use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
 };
 
+mod code_analysis;
 mod code_gen;
 #[cfg(test)]
 mod test;

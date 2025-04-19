@@ -2,65 +2,18 @@ use convert_case::{Case, Casing};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
-struct ColumnData {
-    name: String,
-    type_: tokio_postgres::types::Type,
-}
-
-struct PrepareStatement {
-    name: String,
-    statement: Box<sqlparser::ast::Statement>,
-    parameter_types: Vec<tokio_postgres::types::Type>,
-    result_types: Vec<ColumnData>,
-}
+use crate::code_analysis::PrepareStatement;
 
 pub(crate) async fn gen_file(
     client: &impl tokio_postgres::GenericClient,
     stmts_raw: String,
 ) -> eyre::Result<String> {
-    prepare_stmts(client, &stmts_raw)
+    crate::code_analysis::prepare_stmts(client, &stmts_raw)
         .await?
         .into_iter()
         .map(gen_fn)
         .collect::<eyre::Result<Vec<String>>>()
         .map(|s| s.join("\n"))
-}
-
-async fn prepare_stmts(
-    client: &impl tokio_postgres::GenericClient,
-    stmts_raw: &str,
-) -> eyre::Result<Vec<PrepareStatement>> {
-    let stmts =
-        sqlparser::parser::Parser::parse_sql(&sqlparser::dialect::PostgreSqlDialect {}, stmts_raw)?;
-
-    let futs = stmts.into_iter().map(|stmt| async move {
-        let sqlparser::ast::Statement::Prepare {
-            name,
-            data_types: _,
-            statement,
-        } = stmt
-        else {
-            eyre::bail!("not support {stmt} statement");
-        };
-        let ps = client.prepare(&statement.to_string()).await?;
-
-        Ok(PrepareStatement {
-            name: name.value,
-            statement,
-            parameter_types: ps.params().to_vec(),
-            result_types: ps
-                .columns()
-                .iter()
-                .map(|c| ColumnData {
-                    // c also contains the table id and column id
-                    name: c.name().to_owned(),
-                    type_: c.type_().to_owned(),
-                })
-                .collect(),
-        })
-    });
-
-    futures::future::try_join_all(futs).await
 }
 
 fn gen_fn(ps: PrepareStatement) -> eyre::Result<String> {
