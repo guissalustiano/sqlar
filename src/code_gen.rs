@@ -87,6 +87,13 @@ fn gen_fn(ps: PrepareStatement) -> eyre::Result<String> {
     let sql_statement = ps.statement.to_string();
 
     let has_params = !ps.parameter_types.is_empty();
+    let param_params = if has_params {
+        quote! {
+            p: #params_struct_ident
+        }
+    } else {
+        quote! {}
+    };
     let params_struct = if has_params {
         let param_types = ps
             .parameter_types
@@ -140,7 +147,7 @@ fn gen_fn(ps: PrepareStatement) -> eyre::Result<String> {
             .enumerate()
             .map(|(i, _)| {
                 let field_ident = format_ident!("param_{}", i);
-                quote! { p.#field_ident }
+                quote! { &p.#field_ident }
             })
             .collect::<Vec<_>>();
 
@@ -149,7 +156,7 @@ fn gen_fn(ps: PrepareStatement) -> eyre::Result<String> {
         quote! { &[] }
     };
 
-    let try_get_expressions = {
+    let get_expressions = {
         let get_exprs = ps
             .result_types
             .iter()
@@ -158,7 +165,7 @@ fn gen_fn(ps: PrepareStatement) -> eyre::Result<String> {
                 let field_ident = format_ident!("{}", c.name);
                 let i = proc_macro2::Literal::usize_unsuffixed(i);
 
-                quote! { #field_ident: r.try_get(#i)? }
+                quote! { #field_ident: r.get(#i) }
             })
             .collect::<Vec<_>>();
 
@@ -172,12 +179,12 @@ fn gen_fn(ps: PrepareStatement) -> eyre::Result<String> {
 
         pub async fn #fn_name(
             c: impl tokio_postgres::GenericClient,
-            p: #params_struct_ident
+            #param_params
         ) -> Result<Vec<#rows_struct_ident>, tokio_postgres::Error> {
             c.query(#sql_statement, #param_binding).await.map(|rs| {
                 rs.into_iter()
                     .map(|r| #rows_struct_ident{
-                        #try_get_expressions
+                        #get_expressions
                     })
                     .collect()
             })
