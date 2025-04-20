@@ -160,6 +160,44 @@ async fn with_input_right() {
 }
 
 #[tokio::test]
+async fn with_multiple_inputs() {
+    let rs = e2e(
+        "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
+        "PREPARE find_user AS SELECT id, name FROM users WHERE id = $1 AND name LIKE $2;",
+    )
+    .await;
+
+    insta::assert_snapshot!(rs, @r#"
+    pub struct FindUserParams {
+        pub eq_id: Option<i32>,
+        pub like_name: Option<String>,
+    }
+    pub struct FindUserRows {
+        pub id: Option<i32>,
+        pub name: Option<String>,
+    }
+    pub async fn find_user(
+        c: &impl tokio_postgres::GenericClient,
+        p: FindUserParams,
+    ) -> Result<Vec<FindUserRows>, tokio_postgres::Error> {
+        c.query(
+                "SELECT id, name FROM users WHERE id = $1 AND name LIKE $2",
+                &[&p.eq_id, &p.like_name],
+            )
+            .await
+            .map(|rs| {
+                rs.into_iter()
+                    .map(|r| FindUserRows {
+                        id: r.get(0),
+                        name: r.get(1),
+                    })
+                    .collect()
+            })
+    }
+    "#);
+}
+
+#[tokio::test]
 async fn multiple_prepare() {
     let rs = e2e(
         "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",

@@ -1,5 +1,5 @@
 use eyre::ContextCompat;
-use sqlparser::ast::{Expr, Statement, Value, ValueWithSpan};
+use sqlparser::ast::{BinaryOperator, Expr, Statement, Value, ValueWithSpan};
 
 pub struct InputData {
     pub name: String,
@@ -42,7 +42,7 @@ pub(crate) async fn prepare_stmts(
             .enumerate()
             .map(|(i, t)| {
                 Ok(InputData {
-                    name: find_param_node(&statement, i)?.context("param not found")?,
+                    name: find_param_node(&statement, i + 1)?.context("param not found")?,
                     type_: t.clone(),
                 })
             })
@@ -87,13 +87,12 @@ fn find_param_node(stmt: &Statement, index: usize) -> eyre::Result<Option<String
 
 fn expr_find(expr: &Expr, i: usize) -> eyre::Result<Option<String>> {
     fn is_placehold(e: &Expr, i: usize) -> bool {
-        let i = i + 1;
         if let Expr::Value(ValueWithSpan {
             value: Value::Placeholder(p),
             span: _,
         }) = e
         {
-            *dbg!(p) == dbg!(format!("${i}"))
+            *p == format!("${i}")
         } else {
             false
         }
@@ -112,17 +111,36 @@ fn expr_find(expr: &Expr, i: usize) -> eyre::Result<Option<String>> {
     }
     fn name_op(op: &sqlparser::ast::BinaryOperator) -> eyre::Result<&str> {
         Ok(match op {
-            sqlparser::ast::BinaryOperator::Eq => "eq",
-            _ => eyre::bail!("op not supported yet"),
+            BinaryOperator::Eq => "eq",
+            BinaryOperator::PGLikeMatch => "like",
+            _ => eyre::bail!("op {op} not supported yet"),
         })
     }
     match expr {
-        Expr::BinaryOp { left, op, right } if is_placehold(right, i) => {
-            Ok(Some(format!("{}_{}", name_op(op)?, name_expr(&left)?)))
-        }
+        Expr::Identifier(_) | Expr::Value(_) => Ok(None),
         Expr::BinaryOp { left, op, right } if is_placehold(&left, i) => {
             Ok(Some(format!("{}_{}", name_op(op)?, name_expr(&right)?)))
         }
+        Expr::BinaryOp { left, op, right } if is_placehold(right, i) => {
+            Ok(Some(format!("{}_{}", name_op(op)?, name_expr(&left)?)))
+        }
+        Expr::BinaryOp { left, op: _, right } => {
+            if let Some(r) = expr_find(&left, i)? {
+                return Ok(Some(r));
+            }
+            expr_find(&right, i)
+        }
+        Expr::Like {
+            negated: _,
+            any: _,
+            expr,
+            pattern,
+            escape_char: _,
+        } if is_placehold(&pattern, i) => Ok(Some(format!(
+            "{}_{}",
+            name_op(&BinaryOperator::PGLikeMatch)?,
+            name_expr(&expr)?
+        ))),
         _ => eyre::bail!("{expr} not supported yet"),
     }
 }
