@@ -26,8 +26,12 @@ fn gen_fn(ps: PrepareStatement) -> eyre::Result<String> {
             &Type::INT8 => quote! { i64 },
             &Type::FLOAT4 => quote! { f32 },
             &Type::FLOAT8 => quote! { f64 },
-            &Type::CHAR | &Type::VARCHAR | &Type::TEXT => quote! { String },
+            &Type::CHAR | &Type::VARCHAR | &Type::TEXT | &Type::NAME => quote! { String },
             &Type::BYTEA => quote! { Vec<u8> },
+            &Type::OID => quote! { tokio_postgres::types::Oid },
+            &Type::OID_ARRAY => quote! { Vec<tokio_postgres::types::Oid> },
+            &Type::BOOL_ARRAY => quote! { Vec<bool> },
+            &Type::NAME_ARRAY => quote! { Vec<String> },
             _ => eyre::bail!("type {ty} not supported yet"),
         })
     }
