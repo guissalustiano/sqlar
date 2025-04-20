@@ -250,5 +250,3 @@ async fn multiple_prepare() {
     }
     "#);
 }
-
-// TODO: test skip param values $1, $3
