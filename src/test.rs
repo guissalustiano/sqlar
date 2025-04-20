@@ -65,7 +65,7 @@ async fn e2e(ts: &str, ps: &str) -> String {
 async fn without_input() {
     let rs = e2e(
         "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
-        "PREPARE list_users AS SELECT u.id, u.name FROM users u;",
+        "PREPARE list_users AS SELECT id, name FROM users;",
     )
     .await;
 
@@ -77,7 +77,7 @@ async fn without_input() {
     pub async fn list_users(
         c: &impl tokio_postgres::GenericClient,
     ) -> Result<Vec<ListUsersRows>, tokio_postgres::Error> {
-        c.query("SELECT u.id, u.name FROM users AS u", &[])
+        c.query("SELECT id, name FROM users", &[])
             .await
             .map(|rs| {
                 rs.into_iter()
@@ -95,13 +95,13 @@ async fn without_input() {
 async fn with_input() {
     let rs = e2e(
         "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
-        "PREPARE find_user AS SELECT u.id, u.name FROM users u where u.id = $1;",
+        "PREPARE find_user AS SELECT id, name FROM users where id = $1;",
     )
     .await;
 
     insta::assert_snapshot!(rs, @r#"
     pub struct FindUserParams {
-        pub param_0: Option<i32>,
+        pub eq_id: Option<i32>,
     }
     pub struct FindUserRows {
         pub id: Option<i32>,
@@ -111,7 +111,7 @@ async fn with_input() {
         c: &impl tokio_postgres::GenericClient,
         p: FindUserParams,
     ) -> Result<Vec<FindUserRows>, tokio_postgres::Error> {
-        c.query("SELECT u.id, u.name FROM users AS u WHERE u.id = $1", &[&p.param_0])
+        c.query("SELECT id, name FROM users WHERE id = $1", &[&p.eq_id])
             .await
             .map(|rs| {
                 rs.into_iter()
@@ -129,8 +129,8 @@ async fn with_input() {
 async fn multiple_prepare() {
     let rs = e2e(
         "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
-        "PREPARE list_users AS SELECT u.id, u.name FROM users u;
-         PREPARE find_user AS SELECT u.id, u.name FROM users u where u.id = $1;",
+        "PREPARE list_users AS SELECT id, name FROM users;
+         PREPARE find_user AS SELECT id, name FROM users where id = $1;",
     )
     .await;
 
@@ -142,7 +142,7 @@ async fn multiple_prepare() {
     pub async fn list_users(
         c: &impl tokio_postgres::GenericClient,
     ) -> Result<Vec<ListUsersRows>, tokio_postgres::Error> {
-        c.query("SELECT u.id, u.name FROM users AS u", &[])
+        c.query("SELECT id, name FROM users", &[])
             .await
             .map(|rs| {
                 rs.into_iter()
@@ -155,7 +155,7 @@ async fn multiple_prepare() {
     }
 
     pub struct FindUserParams {
-        pub param_0: Option<i32>,
+        pub eq_id: Option<i32>,
     }
     pub struct FindUserRows {
         pub id: Option<i32>,
@@ -165,7 +165,7 @@ async fn multiple_prepare() {
         c: &impl tokio_postgres::GenericClient,
         p: FindUserParams,
     ) -> Result<Vec<FindUserRows>, tokio_postgres::Error> {
-        c.query("SELECT u.id, u.name FROM users AS u WHERE u.id = $1", &[&p.param_0])
+        c.query("SELECT id, name FROM users WHERE id = $1", &[&p.eq_id])
             .await
             .map(|rs| {
                 rs.into_iter()

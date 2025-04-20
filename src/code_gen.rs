@@ -55,10 +55,9 @@ fn gen_fn(ps: PrepareStatement) -> eyre::Result<String> {
         let param_types = ps
             .parameter_types
             .iter()
-            .enumerate()
-            .map(|(i, t)| {
-                let field_type = quote_type(t)?;
-                let field_ident = format_ident!("param_{}", i);
+            .map(|p| {
+                let field_type = quote_type(&p.type_)?;
+                let field_ident = format_ident!("{}", p.name);
 
                 Ok(quote! {
                     pub #field_ident: Option<#field_type>
@@ -101,12 +100,12 @@ fn gen_fn(ps: PrepareStatement) -> eyre::Result<String> {
         let param_refs = ps
             .parameter_types
             .iter()
-            .enumerate()
-            .map(|(i, _)| {
-                let field_ident = format_ident!("param_{}", i);
-                quote! { &p.#field_ident }
+            .map(|p| {
+                let field_ident = format_ident!("{}", p.name);
+
+                Ok(quote! { &p.#field_ident })
             })
-            .collect::<Vec<_>>();
+            .collect::<eyre::Result<Vec<_>>>()?;
 
         quote! { &[#(#param_refs),*] }
     } else {

@@ -11,8 +11,8 @@ And explore dimensional analysis with constraints to avoid return Vec to everthi
 ## How to use?
 Write prepare statments in sql file aside your rust code
 ```sql
-  PREPARE list_users AS SELECT u.id, u.name FROM users u;
-  PREPARE find_user AS SELECT u.id, u.name FROM users u where u.id = $1;
+PREPARE list_users AS SELECT id, name FROM users;
+PREPARE find_user AS SELECT id, name FROM users where id = $1;
 ```
 
 When done, run the cli to generate the rust code
@@ -22,40 +22,35 @@ When done, run the cli to generate the rust code
 
 Which generates:
 ```rust
-    pub struct ListUsersRows {
-        pub id: Option<i32>,
-        pub name: Option<String>,
-    }
-    pub async fn list_users(
-        c: impl tokio_postgres::GenericClient,
-    ) -> Result<Vec<ListUsersRows>, tokio_postgres::Error> {
-        c.query("SELECT u.id, u.name FROM users AS u", &[])
-            .await
-            .map(|rs| {
-                rs.into_iter()
-                    .map(|r| ListUsersRows {
-                        id: r.get(0),
-                        name: r.get(1),
-                    })
-                    .collect()
+pub struct ListUsersRows {
+    pub id: Option<i32>,
+    pub name: Option<String>,
+}
+pub async fn list_users(
+    c: &impl tokio_postgres::GenericClient,
+) -> Result<Vec<ListUsersRows>, tokio_postgres::Error> {
+    c.query("SELECT id, name FROM users", &[]).await.map(|rs| {
+        rs.into_iter()
+            .map(|r| ListUsersRows {
+                id: r.get(0),
+                name: r.get(1),
             })
-    }
+            .collect()
+    })
+}
 
-    pub struct FindUserParams {
-        pub param_0: Option<i32>,
-    }
-    pub struct FindUserRows {
-        pub id: Option<i32>,
-        pub name: Option<String>,
-    }
-    pub async fn find_user(
-        c: impl tokio_postgres::GenericClient,
-        p: FindUserParams,
-    ) -> Result<Vec<FindUserRows>, tokio_postgres::Error> {
-        c.query(
-            "SELECT u.id, u.name FROM users AS u WHERE u.id = $1",
-            &[&p.param_0],
-        )
+pub struct FindUserParams {
+    pub eq_id: Option<i32>,
+}
+pub struct FindUserRows {
+    pub id: Option<i32>,
+    pub name: Option<String>,
+}
+pub async fn find_user(
+    c: &impl tokio_postgres::GenericClient,
+    p: FindUserParams,
+) -> Result<Vec<FindUserRows>, tokio_postgres::Error> {
+    c.query("SELECT id, name FROM users WHERE id = $1", &[&p.eq_id])
         .await
         .map(|rs| {
             rs.into_iter()
@@ -65,7 +60,7 @@ Which generates:
                 })
                 .collect()
         })
-    }
+}
 ```
 
 # Licences
