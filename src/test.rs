@@ -163,13 +163,13 @@ async fn with_input_right() {
 async fn with_multiple_inputs() {
     let rs = e2e(
         "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
-        "PREPARE find_user AS SELECT id, name FROM users WHERE id = $1 AND name LIKE $2;",
+        "PREPARE find_user AS SELECT id, name FROM users WHERE id > $1 AND name LIKE $2;",
     )
     .await;
 
     insta::assert_snapshot!(rs, @r#"
     pub struct FindUserParams {
-        pub eq_id: Option<i32>,
+        pub gt_id: Option<i32>,
         pub like_name: Option<String>,
     }
     pub struct FindUserRows {
@@ -181,8 +181,8 @@ async fn with_multiple_inputs() {
         p: FindUserParams,
     ) -> Result<Vec<FindUserRows>, tokio_postgres::Error> {
         c.query(
-                "SELECT id, name FROM users WHERE id = $1 AND name LIKE $2",
-                &[&p.eq_id, &p.like_name],
+                "SELECT id, name FROM users WHERE id > $1 AND name LIKE $2",
+                &[&p.gt_id, &p.like_name],
             )
             .await
             .map(|rs| {

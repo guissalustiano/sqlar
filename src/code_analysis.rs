@@ -113,6 +113,10 @@ fn expr_find(expr: &Expr, i: usize) -> eyre::Result<Option<String>> {
         Ok(match op {
             BinaryOperator::Eq => "eq",
             BinaryOperator::PGLikeMatch => "like",
+            BinaryOperator::Gt => "gt",
+            BinaryOperator::Lt => "lt",
+            BinaryOperator::GtEq => "ge",
+            BinaryOperator::LtEq => "le",
             _ => eyre::bail!("op {op} not supported yet"),
         })
     }
