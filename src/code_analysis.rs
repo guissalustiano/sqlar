@@ -1,5 +1,8 @@
 use eyre::ContextCompat;
-use sqlparser::ast::{BinaryOperator, Expr, Statement, Value, ValueWithSpan};
+use sqlparser::ast::{
+    Assignment, AssignmentTarget, BinaryOperator, Expr, ObjectName, ObjectNamePart, Statement,
+    Value, ValueWithSpan,
+};
 
 pub struct InputData {
     pub name: String,
@@ -38,7 +41,7 @@ pub(crate) async fn prepare_stmts(
             statement,
         } = stmt
         else {
-            eyre::bail!("not support {stmt} statement");
+            eyre::bail!("sql files should contains only prepare statements, found {stmt}");
         };
         let ps = client.prepare(&statement.to_string()).await?;
 
@@ -98,26 +101,55 @@ fn find_param_node(stmt: &Statement, i: usize) -> eyre::Result<Option<String>> {
             .as_ref()
             .and_then(|s| expr_find(s, i).transpose())
             .transpose(),
-        Statement::Insert(_) | Statement::Update { .. } => {
+        Statement::Update {
+            selection,
+            assignments,
+            ..
+        } => selection
+            .as_ref()
+            .and_then(|s| expr_find(s, i).transpose())
+            .or_else(|| {
+                assignments
+                    .iter()
+                    .find_map(|a| assigmeng_find(a, i).transpose())
+            })
+            .transpose(),
+        Statement::Insert(_) => {
             eyre::bail!("statement not supported yet")
         }
         _ => eyre::bail!("statement not supported"),
     }
 }
 
-fn expr_find(expr: &Expr, i: usize) -> eyre::Result<Option<String>> {
-    fn is_placehold(e: &Expr, i: usize) -> bool {
-        if let Expr::Value(ValueWithSpan {
-            value: Value::Placeholder(p),
-            span: _,
-        }) = e
-        {
-            *p == format!("${i}")
-        } else {
-            false
-        }
+fn is_placehold(e: &Expr, i: usize) -> bool {
+    if let Expr::Value(ValueWithSpan {
+        value: Value::Placeholder(p),
+        span: _,
+    }) = e
+    {
+        *p == format!("${i}")
+    } else {
+        false
     }
-
+}
+fn assigmeng_find(a: &Assignment, i: usize) -> eyre::Result<Option<String>> {
+    is_placehold(&a.value, i)
+        .then(|| {
+            Ok(match &a.target {
+                AssignmentTarget::ColumnName(ObjectName(os)) => std::iter::once("set")
+                    .chain(os.iter().map(|o| match o {
+                        ObjectNamePart::Identifier(ident) => ident.value.as_str(),
+                    }))
+                    .collect::<Vec<&str>>()
+                    .join("_"),
+                AssignmentTarget::Tuple(_) => {
+                    eyre::bail!("{} with tuple is not supported yet", a.target)
+                }
+            })
+        })
+        .transpose()
+}
+fn expr_find(expr: &Expr, i: usize) -> eyre::Result<Option<String>> {
     fn name_expr(e: &Expr) -> eyre::Result<String> {
         Ok(match e {
             Expr::CompoundIdentifier(idents) => idents

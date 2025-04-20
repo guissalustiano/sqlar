@@ -198,6 +198,28 @@ async fn with_multiple_inputs() {
 }
 
 #[tokio::test]
+async fn update() {
+    let rs = e2e(
+        "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
+        "PREPARE update_user AS UPDATE users SET name = $2 WHERE id = $1;",
+    )
+    .await;
+
+    insta::assert_snapshot!(rs, @r#"
+    pub struct UpdateUserParams {
+        pub eq_id: Option<i32>,
+        pub set_name: Option<String>,
+    }
+    pub async fn update_user(
+        c: &impl tokio_postgres::GenericClient,
+        p: UpdateUserParams,
+    ) -> Result<u64, tokio_postgres::Error> {
+        c.execute("UPDATE users SET name = $2 WHERE id = $1", &[&p.eq_id, &p.set_name]).await
+    }
+    "#);
+}
+
+#[tokio::test]
 async fn delete() {
     let rs = e2e(
         "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
