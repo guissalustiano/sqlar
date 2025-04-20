@@ -198,6 +198,30 @@ async fn with_multiple_inputs() {
 }
 
 #[tokio::test]
+async fn basic_delete() {
+    let rs = e2e(
+        "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
+        "PREPARE delete_user AS DELETE FROM users WHERE id = $1",
+    )
+    .await;
+
+    insta::assert_snapshot!(rs, @r#"
+    pub struct DeleteUserParams {
+        pub eq_id: Option<i32>,
+    }
+    pub struct DeleteUserRows {}
+    pub async fn delete_user(
+        c: &impl tokio_postgres::GenericClient,
+        p: DeleteUserParams,
+    ) -> Result<Vec<DeleteUserRows>, tokio_postgres::Error> {
+        c.query("DELETE FROM users WHERE id = $1", &[&p.eq_id])
+            .await
+            .map(|rs| { rs.into_iter().map(|r| DeleteUserRows {}).collect() })
+    }
+    "#);
+}
+
+#[tokio::test]
 async fn multiple_prepare() {
     let rs = e2e(
         "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",

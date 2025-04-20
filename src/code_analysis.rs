@@ -67,18 +67,22 @@ pub(crate) async fn prepare_stmts(
     futures::future::try_join_all(futs).await
 }
 
-fn find_param_node(stmt: &Statement, index: usize) -> eyre::Result<Option<String>> {
+fn find_param_node(stmt: &Statement, i: usize) -> eyre::Result<Option<String>> {
     match stmt {
         Statement::Query(query) => match *query.body {
-            sqlparser::ast::SetExpr::Select(ref select) => {
-                let Some(ref selection) = select.selection else {
-                    return Ok(None);
-                };
-                expr_find(selection, index)
-            }
+            sqlparser::ast::SetExpr::Select(ref select) => select
+                .selection
+                .as_ref()
+                .and_then(|s| expr_find(s, i).transpose())
+                .transpose(),
             _ => eyre::bail!("not supported yet"),
         },
-        Statement::Insert(_) | Statement::Update { .. } | Statement::Delete(_) => {
+        Statement::Delete(delete) => delete
+            .selection
+            .as_ref()
+            .and_then(|s| expr_find(s, i).transpose())
+            .transpose(),
+        Statement::Insert(_) | Statement::Update { .. } => {
             eyre::bail!("statement not supported yet")
         }
         _ => eyre::bail!("statement not supported"),
