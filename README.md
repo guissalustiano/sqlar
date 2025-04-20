@@ -17,7 +17,7 @@ PREPARE find_user AS SELECT id, name FROM users where id = $1;
 
 When done, run the cli to generate the rust code
 ```bash
-  $ sqlc
+  $ sqlc .
 ```
 
 Which generates:

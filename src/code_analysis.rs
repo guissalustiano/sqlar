@@ -148,12 +148,10 @@ fn expr_find(expr: &Expr, i: usize) -> eyre::Result<Option<String>> {
         Expr::BinaryOp { left, op, right } if is_placehold(right, i) => {
             Ok(Some(format!("{}_{}", name_op(op)?, name_expr(&left)?)))
         }
-        Expr::BinaryOp { left, op: _, right } => {
-            if let Some(r) = expr_find(&left, i)? {
-                return Ok(Some(r));
-            }
-            expr_find(&right, i)
-        }
+        Expr::BinaryOp { left, op: _, right } => expr_find(&left, i)
+            .transpose()
+            .or_else(|| expr_find(&right, i).transpose())
+            .transpose(),
         Expr::Like {
             negated: _,
             any: _,
