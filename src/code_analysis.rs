@@ -109,9 +109,31 @@ fn find_param_node(stmt: &Statement, i: usize) -> eyre::Result<Option<String>> {
             .as_ref()
             .and_then(|s| expr_find(s, i).transpose())
             .or_else(|| {
-                assignments
-                    .iter()
-                    .find_map(|a| assigmeng_find(a, i).transpose())
+                assignments.iter().find_map(|a| {
+                    {
+                        let a: &Assignment = a;
+                        is_placehold(&a.value, i)
+                            .then(|| {
+                                Ok(match &a.target {
+                                    AssignmentTarget::ColumnName(ObjectName(os)) => {
+                                        std::iter::once("set")
+                                            .chain(os.iter().map(|o| match o {
+                                                ObjectNamePart::Identifier(ident) => {
+                                                    ident.value.as_str()
+                                                }
+                                            }))
+                                            .collect::<Vec<&str>>()
+                                            .join("_")
+                                    }
+                                    AssignmentTarget::Tuple(_) => {
+                                        eyre::bail!("{} with tuple is not supported yet", a.target)
+                                    }
+                                })
+                            })
+                            .transpose()
+                    }
+                    .transpose()
+                })
             })
             .transpose(),
         Statement::Insert(_) => {
@@ -132,23 +154,7 @@ fn is_placehold(e: &Expr, i: usize) -> bool {
         false
     }
 }
-fn assigmeng_find(a: &Assignment, i: usize) -> eyre::Result<Option<String>> {
-    is_placehold(&a.value, i)
-        .then(|| {
-            Ok(match &a.target {
-                AssignmentTarget::ColumnName(ObjectName(os)) => std::iter::once("set")
-                    .chain(os.iter().map(|o| match o {
-                        ObjectNamePart::Identifier(ident) => ident.value.as_str(),
-                    }))
-                    .collect::<Vec<&str>>()
-                    .join("_"),
-                AssignmentTarget::Tuple(_) => {
-                    eyre::bail!("{} with tuple is not supported yet", a.target)
-                }
-            })
-        })
-        .transpose()
-}
+
 fn expr_find(expr: &Expr, i: usize) -> eyre::Result<Option<String>> {
     fn name_expr(e: &Expr) -> eyre::Result<String> {
         Ok(match e {
