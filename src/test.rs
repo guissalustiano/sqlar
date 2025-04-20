@@ -220,6 +220,44 @@ async fn update() {
 }
 
 #[tokio::test]
+async fn update_with_return() {
+    let rs = e2e(
+        "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
+        "PREPARE update_user AS UPDATE users SET name = $2 WHERE id = $1 RETURNING id, name;",
+    )
+    .await;
+
+    insta::assert_snapshot!(rs, @r#"
+    pub struct UpdateUserParams {
+        pub eq_id: Option<i32>,
+        pub set_name: Option<String>,
+    }
+    pub struct UpdateUserRows {
+        pub id: Option<i32>,
+        pub name: Option<String>,
+    }
+    pub async fn update_user(
+        c: &impl tokio_postgres::GenericClient,
+        p: UpdateUserParams,
+    ) -> Result<Vec<UpdateUserRows>, tokio_postgres::Error> {
+        c.query(
+                "UPDATE users SET name = $2 WHERE id = $1 RETURNING id, name",
+                &[&p.eq_id, &p.set_name],
+            )
+            .await
+            .map(|rs| {
+                rs.into_iter()
+                    .map(|r| UpdateUserRows {
+                        id: r.get(0),
+                        name: r.get(1),
+                    })
+                    .collect()
+            })
+    }
+    "#);
+}
+
+#[tokio::test]
 async fn delete() {
     let rs = e2e(
         "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
