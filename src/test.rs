@@ -209,14 +209,11 @@ async fn delete() {
     pub struct DeleteUserParams {
         pub eq_id: Option<i32>,
     }
-    pub struct DeleteUserRows {}
     pub async fn delete_user(
         c: &impl tokio_postgres::GenericClient,
         p: DeleteUserParams,
-    ) -> Result<Vec<DeleteUserRows>, tokio_postgres::Error> {
-        c.query("DELETE FROM users WHERE id = $1", &[&p.eq_id])
-            .await
-            .map(|rs| { rs.into_iter().map(|r| DeleteUserRows {}).collect() })
+    ) -> Result<u64, tokio_postgres::Error> {
+        c.execute("DELETE FROM users WHERE id = $1", &[&p.eq_id]).await
     }
     "#);
 }

@@ -10,11 +10,17 @@ pub struct ColumnData {
     pub type_: tokio_postgres::types::Type,
 }
 
+pub enum ClientMethod {
+    Query,
+    Execute,
+}
+
 pub struct PrepareStatement {
     pub name: String,
     pub statement: Box<Statement>,
     pub parameter_types: Vec<InputData>,
     pub result_types: Vec<ColumnData>,
+    pub client_method: ClientMethod,
 }
 
 pub(crate) async fn prepare_stmts(
@@ -36,22 +42,20 @@ pub(crate) async fn prepare_stmts(
         };
         let ps = client.prepare(&statement.to_string()).await?;
 
-        let parameter_types = ps
-            .params()
-            .iter()
-            .enumerate()
-            .map(|(i, t)| {
-                Ok(InputData {
-                    name: find_param_node(&statement, i + 1)?.context("param not found")?,
-                    type_: t.clone(),
-                })
-            })
-            .collect::<eyre::Result<_>>()?;
-
         Ok(PrepareStatement {
             name: name.value,
-            statement,
-            parameter_types,
+            client_method: calc_client_method(&ps, &statement),
+            parameter_types: ps
+                .params()
+                .iter()
+                .enumerate()
+                .map(|(i, t)| {
+                    Ok(InputData {
+                        name: find_param_node(&statement, i + 1)?.context("param not found")?,
+                        type_: t.clone(),
+                    })
+                })
+                .collect::<eyre::Result<_>>()?,
             result_types: ps
                 .columns()
                 .iter()
@@ -61,10 +65,22 @@ pub(crate) async fn prepare_stmts(
                     type_: c.type_().to_owned(),
                 })
                 .collect(),
+            statement,
         })
     });
 
     futures::future::try_join_all(futs).await
+}
+
+fn calc_client_method(ps: &tokio_postgres::Statement, stmt: &Statement) -> ClientMethod {
+    match stmt {
+        Statement::Delete(_) | Statement::Insert(_) | Statement::Update { .. }
+            if ps.columns().is_empty() =>
+        {
+            ClientMethod::Execute
+        }
+        _ => ClientMethod::Query,
+    }
 }
 
 fn find_param_node(stmt: &Statement, i: usize) -> eyre::Result<Option<String>> {

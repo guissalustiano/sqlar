@@ -129,21 +129,37 @@ fn gen_fn(ps: PrepareStatement) -> eyre::Result<String> {
     };
 
     // Generate the function body with the appropriate try_get expressions
-    let paragraph = quote! {
-        #params_struct
-        #rows_struct
+    let paragraph = match ps.client_method {
+        crate::code_analysis::ClientMethod::Query => {
+            quote! {
+                #params_struct
+                #rows_struct
 
-        pub async fn #fn_name(
-            c: &impl tokio_postgres::GenericClient,
-            #param_params
-        ) -> Result<Vec<#rows_struct_ident>, tokio_postgres::Error> {
-            c.query(#sql_statement, #param_binding).await.map(|rs| {
-                rs.into_iter()
-                    .map(|r| #rows_struct_ident{
-                        #get_expressions
+                pub async fn #fn_name(
+                    c: &impl tokio_postgres::GenericClient,
+                    #param_params
+                ) -> Result<Vec<#rows_struct_ident>, tokio_postgres::Error> {
+                    c.query(#sql_statement, #param_binding).await.map(|rs| {
+                        rs.into_iter()
+                            .map(|r| #rows_struct_ident{
+                                #get_expressions
+                            })
+                            .collect()
                     })
-                    .collect()
-            })
+                }
+            }
+        }
+        crate::code_analysis::ClientMethod::Execute => {
+            quote! {
+                #params_struct
+
+                pub async fn #fn_name(
+                    c: &impl tokio_postgres::GenericClient,
+                    #param_params
+                ) -> Result<u64, tokio_postgres::Error> {
+                    c.execute(#sql_statement, #param_binding).await
+                }
+            }
         }
     };
 
