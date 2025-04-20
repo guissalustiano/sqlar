@@ -1,5 +1,5 @@
 use eyre::ContextCompat;
-use sqlparser::ast::{Expr, Statement};
+use sqlparser::ast::{Expr, Statement, Value, ValueWithSpan};
 
 pub struct InputData {
     pub name: String,
@@ -74,29 +74,7 @@ fn find_param_node(stmt: &Statement, index: usize) -> eyre::Result<Option<String
                 let Some(ref selection) = select.selection else {
                     return Ok(None);
                 };
-
-                match selection {
-                    Expr::BinaryOp { left, op, right: _ } => {
-                        let field_name = match **left {
-                            Expr::CompoundIdentifier(ref idents) => {
-                                idents.iter().map(|i| i.value.as_str()).collect()
-                            }
-                            Expr::Identifier(ref ident) => vec![ident.value.as_str()],
-
-                            _ => eyre::bail!("left not supported yet"),
-                        };
-                        let op_name = match op {
-                            sqlparser::ast::BinaryOperator::Eq => "eq",
-                            _ => eyre::bail!("op not supported yet"),
-                        };
-                        let final_name = std::iter::once(op_name)
-                            .chain(field_name.into_iter())
-                            .collect::<Vec<&str>>()
-                            .join("_");
-                        Ok(Some(final_name))
-                    }
-                    _ => eyre::bail!("selection not supported yet"),
-                }
+                expr_find(selection, index)
             }
             _ => eyre::bail!("not supported yet"),
         },
@@ -104,5 +82,47 @@ fn find_param_node(stmt: &Statement, index: usize) -> eyre::Result<Option<String
             eyre::bail!("statement not supported yet")
         }
         _ => eyre::bail!("statement not supported"),
+    }
+}
+
+fn expr_find(expr: &Expr, i: usize) -> eyre::Result<Option<String>> {
+    fn is_placehold(e: &Expr, i: usize) -> bool {
+        let i = i + 1;
+        if let Expr::Value(ValueWithSpan {
+            value: Value::Placeholder(p),
+            span: _,
+        }) = e
+        {
+            *dbg!(p) == dbg!(format!("${i}"))
+        } else {
+            false
+        }
+    }
+
+    fn name_expr(e: &Expr) -> eyre::Result<String> {
+        Ok(match e {
+            Expr::CompoundIdentifier(idents) => idents
+                .iter()
+                .map(|i| i.value.as_str())
+                .collect::<Vec<_>>()
+                .join("_"),
+            Expr::Identifier(ident) => ident.value.to_owned(),
+            _ => eyre::bail!("{e} not supported yet"),
+        })
+    }
+    fn name_op(op: &sqlparser::ast::BinaryOperator) -> eyre::Result<&str> {
+        Ok(match op {
+            sqlparser::ast::BinaryOperator::Eq => "eq",
+            _ => eyre::bail!("op not supported yet"),
+        })
+    }
+    match expr {
+        Expr::BinaryOp { left, op, right } if is_placehold(right, i) => {
+            Ok(Some(format!("{}_{}", name_op(op)?, name_expr(&left)?)))
+        }
+        Expr::BinaryOp { left, op, right } if is_placehold(&left, i) => {
+            Ok(Some(format!("{}_{}", name_op(op)?, name_expr(&right)?)))
+        }
+        _ => eyre::bail!("{expr} not supported yet"),
     }
 }
