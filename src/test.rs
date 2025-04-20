@@ -75,7 +75,7 @@ async fn without_input() {
         pub name: Option<String>,
     }
     pub async fn list_users(
-        c: impl tokio_postgres::GenericClient,
+        c: &impl tokio_postgres::GenericClient,
     ) -> Result<Vec<ListUsersRows>, tokio_postgres::Error> {
         c.query("SELECT u.id, u.name FROM users AS u", &[])
             .await
@@ -108,7 +108,7 @@ async fn with_input() {
         pub name: Option<String>,
     }
     pub async fn find_user(
-        c: impl tokio_postgres::GenericClient,
+        c: &impl tokio_postgres::GenericClient,
         p: FindUserParams,
     ) -> Result<Vec<FindUserRows>, tokio_postgres::Error> {
         c.query("SELECT u.id, u.name FROM users AS u WHERE u.id = $1", &[&p.param_0])
@@ -140,7 +140,7 @@ async fn multiple_prepare() {
         pub name: Option<String>,
     }
     pub async fn list_users(
-        c: impl tokio_postgres::GenericClient,
+        c: &impl tokio_postgres::GenericClient,
     ) -> Result<Vec<ListUsersRows>, tokio_postgres::Error> {
         c.query("SELECT u.id, u.name FROM users AS u", &[])
             .await
@@ -162,7 +162,7 @@ async fn multiple_prepare() {
         pub name: Option<String>,
     }
     pub async fn find_user(
-        c: impl tokio_postgres::GenericClient,
+        c: &impl tokio_postgres::GenericClient,
         p: FindUserParams,
     ) -> Result<Vec<FindUserRows>, tokio_postgres::Error> {
         c.query("SELECT u.id, u.name FROM users AS u WHERE u.id = $1", &[&p.param_0])

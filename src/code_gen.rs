@@ -135,7 +135,7 @@ fn gen_fn(ps: PrepareStatement) -> eyre::Result<String> {
         #rows_struct
 
         pub async fn #fn_name(
-            c: impl tokio_postgres::GenericClient,
+            c: &impl tokio_postgres::GenericClient,
             #param_params
         ) -> Result<Vec<#rows_struct_ident>, tokio_postgres::Error> {
             c.query(#sql_statement, #param_binding).await.map(|rs| {

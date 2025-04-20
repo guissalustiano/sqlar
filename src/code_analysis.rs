@@ -14,6 +14,7 @@ pub(crate) async fn prepare_stmts(
     client: &impl tokio_postgres::GenericClient,
     stmts_raw: &str,
 ) -> eyre::Result<Vec<PrepareStatement>> {
+    let _schema = crate::schema::load_schema(client).await?;
     let stmts =
         sqlparser::parser::Parser::parse_sql(&sqlparser::dialect::PostgreSqlDialect {}, stmts_raw)?;
 

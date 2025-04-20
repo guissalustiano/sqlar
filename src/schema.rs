@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 mod query;
 
 use eyre::ContextCompat;
@@ -17,7 +18,7 @@ pub struct Schema {
     pub tables: Vec<Table>,
 }
 
-pub async fn load_schema(c: impl tokio_postgres::GenericClient) -> eyre::Result<Schema> {
+pub async fn load_schema(c: &impl tokio_postgres::GenericClient) -> eyre::Result<Schema> {
     query::load_schema(c)
         .await?
         .into_iter()

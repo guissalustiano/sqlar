@@ -3,7 +3,7 @@ pub struct ListUsersRows {
     pub name: Option<String>,
 }
 pub async fn list_users(
-    c: impl tokio_postgres::GenericClient,
+    c: &impl tokio_postgres::GenericClient,
 ) -> Result<Vec<ListUsersRows>, tokio_postgres::Error> {
     c.query("SELECT u.id, u.name FROM users AS u", &[])
         .await
@@ -25,7 +25,7 @@ pub struct FindUserRows {
     pub name: Option<String>,
 }
 pub async fn find_user(
-    c: impl tokio_postgres::GenericClient,
+    c: &impl tokio_postgres::GenericClient,
     p: FindUserParams,
 ) -> Result<Vec<FindUserRows>, tokio_postgres::Error> {
     c.query(
