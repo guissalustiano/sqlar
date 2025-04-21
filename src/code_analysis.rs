@@ -59,20 +59,23 @@ pub(crate) async fn prepare_stmts(
                     })
                 })
                 .collect::<eyre::Result<_>>()?,
-            result_types: ps
-                .columns()
-                .iter()
-                .map(|c| ColumnData {
-                    // c also contains the table id and column id
-                    name: c.name().to_owned(),
-                    type_: c.type_().to_owned(),
-                })
-                .collect(),
+            result_types: infer_result_types(&ps, &statement),
             statement,
         })
     });
 
     futures::future::try_join_all(futs).await
+}
+
+fn infer_result_types(ps: &tokio_postgres::Statement, stmt: &Statement) -> Vec<ColumnData> {
+    ps.columns()
+        .iter()
+        .map(|c| ColumnData {
+            // c also contains the table id and column id
+            name: c.name().to_owned(),
+            type_: c.type_().to_owned(),
+        })
+        .collect()
 }
 
 fn calc_client_method(ps: &tokio_postgres::Statement, stmt: &Statement) -> ClientMethod {
