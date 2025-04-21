@@ -12,6 +12,7 @@ Write prepare statments in sql file aside your rust code
 ```sql
 PREPARE find_user AS SELECT id, name FROM users WHERE id = $1;
 PREPARE list_users AS SELECT id, name FROM users;
+PREPARE create_user AS INSERT INTO users(name) VALUES ($1);
 PREPARE update_user AS UPDATE users SET name = $2 WHERE id = $1;
 PREPARE delete_user AS DELETE FROM users WHERE id = $1;
 ```
@@ -53,14 +54,26 @@ pub struct ListUsersRows {
 pub async fn list_users(
     c: &impl tokio_postgres::GenericClient,
 ) -> Result<Vec<ListUsersRows>, tokio_postgres::Error> {
-    c.query("SELECT id, name FROM users", &[]).await.map(|rs| {
-        rs.into_iter()
-            .map(|r| ListUsersRows {
-                id: r.get(0),
-                name: r.get(1),
-            })
-            .collect()
-    })
+    c.query("SELECT id, name FROM users", &[])
+        .await
+        .map(|rs| {
+            rs.into_iter()
+                .map(|r| ListUsersRows {
+                    id: r.get(0),
+                    name: r.get(1),
+                })
+                .collect()
+        })
+}
+
+pub struct CreateUserParams {
+    pub name: String,
+}
+pub async fn create_user(
+    c: &impl tokio_postgres::GenericClient,
+    p: CreateUserParams,
+) -> Result<u64, tokio_postgres::Error> {
+    c.execute("INSERT INTO users (name) VALUES ($1)", &[&p.name]).await
 }
 
 pub struct UpdateUserParams {
@@ -71,11 +84,7 @@ pub async fn update_user(
     c: &impl tokio_postgres::GenericClient,
     p: UpdateUserParams,
 ) -> Result<u64, tokio_postgres::Error> {
-    c.execute(
-        "UPDATE users SET name = $2 WHERE id = $1",
-        &[&p.eq_id, &p.set_name],
-    )
-    .await
+    c.execute("UPDATE users SET name = $2 WHERE id = $1", &[&p.eq_id, &p.set_name]).await
 }
 
 pub struct DeleteUserParams {
@@ -85,8 +94,7 @@ pub async fn delete_user(
     c: &impl tokio_postgres::GenericClient,
     p: DeleteUserParams,
 ) -> Result<u64, tokio_postgres::Error> {
-    c.execute("DELETE FROM users WHERE id = $1", &[&p.eq_id])
-        .await
+    c.execute("DELETE FROM users WHERE id = $1", &[&p.eq_id]).await
 }
 ```
 
