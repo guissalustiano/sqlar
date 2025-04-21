@@ -101,7 +101,7 @@ async fn with_input() {
 
     insta::assert_snapshot!(rs, @r#"
     pub struct FindUserParams {
-        pub eq_id: Option<i32>,
+        pub eq_id: i32,
     }
     pub struct FindUserRows {
         pub id: Option<i32>,
@@ -135,7 +135,7 @@ async fn with_input_right() {
 
     insta::assert_snapshot!(rs, @r#"
     pub struct FindUserParams {
-        pub eq_id: Option<i32>,
+        pub eq_id: i32,
     }
     pub struct FindUserRows {
         pub id: Option<i32>,
@@ -169,8 +169,8 @@ async fn with_multiple_inputs() {
 
     insta::assert_snapshot!(rs, @r#"
     pub struct FindUserParams {
-        pub gt_id: Option<i32>,
-        pub like_name: Option<String>,
+        pub gt_id: i32,
+        pub like_name: String,
     }
     pub struct FindUserRows {
         pub id: Option<i32>,
@@ -207,8 +207,8 @@ async fn update() {
 
     insta::assert_snapshot!(rs, @r#"
     pub struct UpdateUserParams {
-        pub eq_id: Option<i32>,
-        pub set_name: Option<String>,
+        pub eq_id: i32,
+        pub set_name: String,
     }
     pub async fn update_user(
         c: &impl tokio_postgres::GenericClient,
@@ -229,8 +229,8 @@ async fn update_with_return() {
 
     insta::assert_snapshot!(rs, @r#"
     pub struct UpdateUserParams {
-        pub eq_id: Option<i32>,
-        pub set_name: Option<String>,
+        pub eq_id: i32,
+        pub set_name: String,
     }
     pub struct UpdateUserRows {
         pub id: Option<i32>,
@@ -267,7 +267,7 @@ async fn delete() {
 
     insta::assert_snapshot!(rs, @r#"
     pub struct DeleteUserParams {
-        pub eq_id: Option<i32>,
+        pub eq_id: i32,
     }
     pub async fn delete_user(
         c: &impl tokio_postgres::GenericClient,
@@ -288,7 +288,7 @@ async fn delete_with_return() {
 
     insta::assert_snapshot!(rs, @r#"
     pub struct DeleteUserParams {
-        pub eq_id: Option<i32>,
+        pub eq_id: i32,
     }
     pub struct DeleteUserRows {
         pub id: Option<i32>,
@@ -342,7 +342,7 @@ async fn multiple_prepare() {
     }
 
     pub struct FindUserParams {
-        pub eq_id: Option<i32>,
+        pub eq_id: i32,
     }
     pub struct FindUserRows {
         pub id: Option<i32>,

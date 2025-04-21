@@ -3,16 +3,17 @@
 > [!CAUTION]
 > This repo is a work in progress and is not ready to be used yet
 ## Plan
-Before publish I with improve the type analysis,
-infering good params names and the righ types to input and output.
+Before publish I with improve the type analysis, infering the righ types to output.
 It's also planned to support domains and references with new types patters.
 And explore dimensional analysis with constraints to avoid return Vec to everthing
 
 ## How to use?
 Write prepare statments in sql file aside your rust code
 ```sql
+PREPARE find_user AS SELECT id, name FROM users WHERE id = $1;
 PREPARE list_users AS SELECT id, name FROM users;
-PREPARE find_user AS SELECT id, name FROM users where id = $1;
+PREPARE update_user AS UPDATE users SET name = $2 WHERE id = $1;
+PREPARE delete_user AS DELETE FROM users WHERE id = $1;
 ```
 
 When done, run the cli to generate the rust code
@@ -22,25 +23,8 @@ When done, run the cli to generate the rust code
 
 Which generates:
 ```rust
-pub struct ListUsersRows {
-    pub id: Option<i32>,
-    pub name: Option<String>,
-}
-pub async fn list_users(
-    c: &impl tokio_postgres::GenericClient,
-) -> Result<Vec<ListUsersRows>, tokio_postgres::Error> {
-    c.query("SELECT id, name FROM users", &[]).await.map(|rs| {
-        rs.into_iter()
-            .map(|r| ListUsersRows {
-                id: r.get(0),
-                name: r.get(1),
-            })
-            .collect()
-    })
-}
-
 pub struct FindUserParams {
-    pub eq_id: Option<i32>,
+    pub eq_id: i32,
 }
 pub struct FindUserRows {
     pub id: Option<i32>,
@@ -60,6 +44,49 @@ pub async fn find_user(
                 })
                 .collect()
         })
+}
+
+pub struct ListUsersRows {
+    pub id: Option<i32>,
+    pub name: Option<String>,
+}
+pub async fn list_users(
+    c: &impl tokio_postgres::GenericClient,
+) -> Result<Vec<ListUsersRows>, tokio_postgres::Error> {
+    c.query("SELECT id, name FROM users", &[]).await.map(|rs| {
+        rs.into_iter()
+            .map(|r| ListUsersRows {
+                id: r.get(0),
+                name: r.get(1),
+            })
+            .collect()
+    })
+}
+
+pub struct UpdateUserParams {
+    pub eq_id: i32,
+    pub set_name: String,
+}
+pub async fn update_user(
+    c: &impl tokio_postgres::GenericClient,
+    p: UpdateUserParams,
+) -> Result<u64, tokio_postgres::Error> {
+    c.execute(
+        "UPDATE users SET name = $2 WHERE id = $1",
+        &[&p.eq_id, &p.set_name],
+    )
+    .await
+}
+
+pub struct DeleteUserParams {
+    pub eq_id: i32,
+}
+pub async fn delete_user(
+    c: &impl tokio_postgres::GenericClient,
+    p: DeleteUserParams,
+) -> Result<u64, tokio_postgres::Error> {
+    c.execute("DELETE FROM users WHERE id = $1", &[&p.eq_id])
+        .await
 }
 ```
 

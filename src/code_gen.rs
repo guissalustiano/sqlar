@@ -60,7 +60,7 @@ fn gen_fn(ps: PrepareStatement) -> eyre::Result<String> {
                 let field_ident = format_ident!("{}", p.name);
 
                 Ok(quote! {
-                    pub #field_ident: Option<#field_type>
+                    pub #field_ident: #field_type
                 })
             })
             .collect::<eyre::Result<Vec<_>>>()?;

@@ -1,5 +1,5 @@
 pub struct FindUserParams {
-    pub eq_id: Option<i32>,
+    pub eq_id: i32,
 }
 pub struct FindUserRows {
     pub id: Option<i32>,
@@ -39,8 +39,8 @@ pub async fn list_users(
 }
 
 pub struct UpdateUserParams {
-    pub eq_id: Option<i32>,
-    pub set_name: Option<String>,
+    pub eq_id: i32,
+    pub set_name: String,
 }
 pub async fn update_user(
     c: &impl tokio_postgres::GenericClient,
@@ -54,7 +54,7 @@ pub async fn update_user(
 }
 
 pub struct DeleteUserParams {
-    pub eq_id: Option<i32>,
+    pub eq_id: i32,
 }
 pub async fn delete_user(
     c: &impl tokio_postgres::GenericClient,
