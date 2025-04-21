@@ -4,6 +4,8 @@ use sqlparser::ast::{
     Statement, Value, ValueWithSpan,
 };
 
+use crate::schema::Schema;
+
 pub struct InputData {
     pub name: String,
     pub type_: tokio_postgres::types::Type,
@@ -11,6 +13,7 @@ pub struct InputData {
 pub struct ColumnData {
     pub name: String,
     pub type_: tokio_postgres::types::Type,
+    pub is_nullable: bool,
 }
 
 pub enum ClientMethod {
@@ -30,11 +33,11 @@ pub(crate) async fn prepare_stmts(
     client: &impl tokio_postgres::GenericClient,
     stmts_raw: &str,
 ) -> eyre::Result<Vec<PrepareStatement>> {
-    let _schema = crate::schema::load_schema(client).await?;
+    let schema = crate::schema::load_schema(client).await?;
     let stmts =
         sqlparser::parser::Parser::parse_sql(&sqlparser::dialect::PostgreSqlDialect {}, stmts_raw)?;
 
-    let futs = stmts.into_iter().map(|stmt| async move {
+    let futs = stmts.into_iter().map(|stmt| async {
         let Statement::Prepare {
             name,
             data_types: _,
@@ -59,7 +62,7 @@ pub(crate) async fn prepare_stmts(
                     })
                 })
                 .collect::<eyre::Result<_>>()?,
-            result_types: infer_result_types(&ps, &statement),
+            result_types: infer_result_types(&ps, &statement, &schema)?,
             statement,
         })
     });
@@ -67,15 +70,46 @@ pub(crate) async fn prepare_stmts(
     futures::future::try_join_all(futs).await
 }
 
-fn infer_result_types(ps: &tokio_postgres::Statement, stmt: &Statement) -> Vec<ColumnData> {
-    ps.columns()
-        .iter()
-        .map(|c| ColumnData {
-            // c also contains the table id and column id
-            name: c.name().to_owned(),
-            type_: c.type_().to_owned(),
-        })
-        .collect()
+fn infer_result_types(
+    ps: &tokio_postgres::Statement,
+    stmt: &Statement,
+    schema: &Schema,
+) -> eyre::Result<Vec<ColumnData>> {
+    match stmt {
+        // DML with returning clausure
+        Statement::Delete(_) | Statement::Insert(_) | Statement::Update { .. }
+            if !ps.columns().is_empty() =>
+        {
+            ps.columns()
+                .iter()
+                .map(|c| {
+                    let sc = schema
+                        .find_column_by_id(
+                            c.table_oid().context("table_oid empty")?,
+                            c.column_id().context("column empty")?,
+                        )
+                        .context("column not found")?;
+
+                    Ok(ColumnData {
+                        name: c.name().to_owned(),
+                        type_: c.type_().to_owned(),
+                        is_nullable: sc.nullable,
+                    })
+                })
+                .collect()
+        }
+        _ => ps
+            .columns()
+            .iter()
+            .map(|c| {
+                Ok(ColumnData {
+                    name: c.name().to_owned(),
+                    type_: c.type_().to_owned(),
+                    is_nullable: true,
+                })
+            })
+            .collect(),
+    }
 }
 
 fn calc_client_method(ps: &tokio_postgres::Statement, stmt: &Statement) -> ClientMethod {

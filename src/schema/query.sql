@@ -4,7 +4,8 @@ SELECT
 	c.relname AS TABLE,
 	ARRAY_AGG(a.attname) AS COLUMN,
 	ARRAY_AGG(a.atttypid) AS type_oid,
-	ARRAY_AGG(a.attnotnull) AS nullable
+	ARRAY_AGG(not a.attnotnull) AS nullable,
+	ARRAY_AGG(a.attnum) AS column_position
 FROM
 	pg_catalog.pg_attribute a
 	JOIN pg_catalog.pg_class c ON a.attrelid = c.oid

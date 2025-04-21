@@ -30,6 +30,7 @@ fn gen_fn(ps: PrepareStatement) -> eyre::Result<String> {
             &Type::BYTEA => quote! { Vec<u8> },
             &Type::OID => quote! { tokio_postgres::types::Oid },
             &Type::OID_ARRAY => quote! { Vec<tokio_postgres::types::Oid> },
+            &Type::INT2_ARRAY => quote! { Vec<i16> },
             &Type::BOOL_ARRAY => quote! { Vec<bool> },
             &Type::NAME_ARRAY => quote! { Vec<String> },
             _ => eyre::bail!("type {ty} not supported yet"),
@@ -82,8 +83,14 @@ fn gen_fn(ps: PrepareStatement) -> eyre::Result<String> {
                 let field_type = quote_type(&c.type_)?;
                 let field_ident = format_ident!("{}", c.name);
 
-                Ok(quote! {
-                    pub #field_ident: Option<#field_type>
+                Ok(if c.is_nullable {
+                    quote! {
+                        pub #field_ident: Option<#field_type>
+                    }
+                } else {
+                    quote! {
+                        pub #field_ident: #field_type
+                    }
                 })
             })
             .collect::<eyre::Result<Vec<_>>>()?;
