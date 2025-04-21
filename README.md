@@ -90,6 +90,11 @@ pub async fn delete_user(
 }
 ```
 
+# Inspirations
+- [cornucopia](https://github.com/cornucopia-rs/cornucopia) - The first sql code gen for rust, but uses a slice different sql grammar with don't allows "copy-paste" to postgres
+- [diesel](https://github.com/cornucopia-rs/cornucopia) - Diesel had create a sql syntact anaylize using rust type system. This is awensome but the error generates are hard and slow to compile.
+- [sqlx](https://github.com/launchbadge/sqlx) - Proves that people want to write sql, but a inpure proc-macro makes cache compile harder. 
+
 # Licences
 SQLc is licenced under AGPL-3.0.
 You're free to use it to generate code for the Rust projects of your choice,
