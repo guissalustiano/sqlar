@@ -198,6 +198,27 @@ async fn with_multiple_inputs() {
 }
 
 #[tokio::test]
+async fn insert() {
+    let rs = e2e(
+        "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
+        "PREPARE create_user AS INSERT INTO users(name) VALUES ($1);",
+    )
+    .await;
+
+    insta::assert_snapshot!(rs, @r#"
+    pub struct CreateUserParams {
+        pub name: String,
+    }
+    pub async fn create_user(
+        c: &impl tokio_postgres::GenericClient,
+        p: CreateUserParams,
+    ) -> Result<u64, tokio_postgres::Error> {
+        c.execute("INSERT INTO users (name) VALUES ($1)", &[&p.name]).await
+    }
+    "#);
+}
+
+#[tokio::test]
 async fn update() {
     let rs = e2e(
         "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",

@@ -1,7 +1,7 @@
 use eyre::ContextCompat;
 use sqlparser::ast::{
-    Assignment, AssignmentTarget, BinaryOperator, Expr, ObjectName, ObjectNamePart, Statement,
-    Value, ValueWithSpan,
+    Assignment, AssignmentTarget, BinaryOperator, Expr, ObjectName, ObjectNamePart, SetExpr,
+    Statement, Value, ValueWithSpan,
 };
 
 pub struct InputData {
@@ -88,8 +88,8 @@ fn calc_client_method(ps: &tokio_postgres::Statement, stmt: &Statement) -> Clien
 
 fn find_param_node(stmt: &Statement, i: usize) -> eyre::Result<Option<String>> {
     match stmt {
-        Statement::Query(query) => match *query.body {
-            sqlparser::ast::SetExpr::Select(ref select) => select
+        Statement::Query(q) => match *q.body {
+            SetExpr::Select(ref select) => select
                 .selection
                 .as_ref()
                 .and_then(|s| expr_find(s, i).transpose())
@@ -136,9 +136,21 @@ fn find_param_node(stmt: &Statement, i: usize) -> eyre::Result<Option<String>> {
                 })
             })
             .transpose(),
-        Statement::Insert(_) => {
-            eyre::bail!("statement not supported yet")
-        }
+        Statement::Insert(insert) => insert
+            .source
+            .as_ref()
+            .and_then(|q| {
+                match *q.body {
+                    SetExpr::Values(ref v) => Ok(v.rows.iter().find_map(|row| {
+                        row.iter()
+                            .zip(&insert.columns)
+                            .find_map(|(v, c)| is_placehold(v, i).then(|| c.value.clone()))
+                    })),
+                    _ => Err(eyre::eyre!("insert statemenr not found")),
+                }
+                .transpose()
+            })
+            .transpose(),
         _ => eyre::bail!("statement not supported"),
     }
 }
