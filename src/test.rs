@@ -219,6 +219,32 @@ async fn insert() {
 }
 
 #[tokio::test]
+async fn insert_with_returning() {
+    let rs = e2e(
+        "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
+        "PREPARE create_user AS INSERT INTO users(name) VALUES ($1) RETURNING id;",
+    )
+    .await;
+
+    insta::assert_snapshot!(rs, @r#"
+    pub struct CreateUserParams {
+        pub name: String,
+    }
+    pub struct CreateUserRows {
+        pub id: Option<i32>,
+    }
+    pub async fn create_user(
+        c: &impl tokio_postgres::GenericClient,
+        p: CreateUserParams,
+    ) -> Result<Vec<CreateUserRows>, tokio_postgres::Error> {
+        c.query("INSERT INTO users (name) VALUES ($1) RETURNING id", &[&p.name])
+            .await
+            .map(|rs| { rs.into_iter().map(|r| CreateUserRows { id: r.get(0) }).collect() })
+    }
+    "#);
+}
+
+#[tokio::test]
 async fn update() {
     let rs = e2e(
         "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
