@@ -57,11 +57,15 @@ async fn main() -> eyre::Result<()> {
     Ok(())
 }
 
-async fn translate_file(
+async fn translate_file<I, O>(
     client: &impl tokio_postgres::GenericClient,
-    sql: &mut (impl AsyncReadExt + Unpin),
-    rs: &mut (impl AsyncWriteExt + Unpin),
-) -> eyre::Result<()> {
+    sql: &mut I,
+    rs: &mut O,
+) -> eyre::Result<()>
+where
+    I: AsyncReadExt + Unpin,
+    O: AsyncWriteExt + Unpin,
+{
     let mut stmts_raw = String::new();
     sql.read_to_string(&mut stmts_raw).await?;
 
