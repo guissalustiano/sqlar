@@ -28,14 +28,16 @@ pub struct ListUsersRows {
 pub async fn list_users(
     c: &impl tokio_postgres::GenericClient,
 ) -> Result<Vec<ListUsersRows>, tokio_postgres::Error> {
-    c.query("SELECT id, name FROM users", &[]).await.map(|rs| {
-        rs.into_iter()
-            .map(|r| ListUsersRows {
-                id: r.get(0),
-                name: r.get(1),
-            })
-            .collect()
-    })
+    c.query("SELECT id, name FROM users", &[])
+        .await
+        .map(|rs| {
+            rs.into_iter()
+                .map(|r| ListUsersRows {
+                    id: r.get(0),
+                    name: r.get(1),
+                })
+                .collect()
+        })
 }
 
 pub struct UpdateUserParams {
@@ -46,11 +48,7 @@ pub async fn update_user(
     c: &impl tokio_postgres::GenericClient,
     p: UpdateUserParams,
 ) -> Result<u64, tokio_postgres::Error> {
-    c.execute(
-        "UPDATE users SET name = $2 WHERE id = $1",
-        &[&p.eq_id, &p.set_name],
-    )
-    .await
+    c.execute("UPDATE users SET name = $2 WHERE id = $1", &[&p.eq_id, &p.set_name]).await
 }
 
 pub struct DeleteUserParams {
@@ -60,8 +58,6 @@ pub async fn delete_user(
     c: &impl tokio_postgres::GenericClient,
     p: DeleteUserParams,
 ) -> Result<u64, tokio_postgres::Error> {
-    c.execute("DELETE FROM users WHERE id = $1", &[&p.eq_id])
-        .await
+    c.execute("DELETE FROM users WHERE id = $1", &[&p.eq_id]).await
 }
-
 fn main() {}
