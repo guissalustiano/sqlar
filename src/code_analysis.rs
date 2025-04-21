@@ -54,7 +54,7 @@ pub(crate) async fn prepare_stmts(
                 .enumerate()
                 .map(|(i, t)| {
                     Ok(InputData {
-                        name: find_param_node(&statement, i + 1)?.context("param not found")?,
+                        name: name_from_statement(&statement, i + 1)?.context("param not found")?,
                         type_: t.clone(),
                     })
                 })
@@ -86,20 +86,20 @@ fn calc_client_method(ps: &tokio_postgres::Statement, stmt: &Statement) -> Clien
     }
 }
 
-fn find_param_node(stmt: &Statement, i: usize) -> eyre::Result<Option<String>> {
+fn name_from_statement(stmt: &Statement, i: usize) -> eyre::Result<Option<String>> {
     match stmt {
         Statement::Query(q) => match *q.body {
             SetExpr::Select(ref select) => select
                 .selection
                 .as_ref()
-                .and_then(|s| expr_find(s, i).transpose())
+                .and_then(|s| name_from_expr(s, i).transpose())
                 .transpose(),
             _ => eyre::bail!("not supported yet"),
         },
         Statement::Delete(delete) => delete
             .selection
             .as_ref()
-            .and_then(|s| expr_find(s, i).transpose())
+            .and_then(|s| name_from_expr(s, i).transpose())
             .transpose(),
         Statement::Update {
             selection,
@@ -107,7 +107,7 @@ fn find_param_node(stmt: &Statement, i: usize) -> eyre::Result<Option<String>> {
             ..
         } => selection
             .as_ref()
-            .and_then(|s| expr_find(s, i).transpose())
+            .and_then(|s| name_from_expr(s, i).transpose())
             .or_else(|| {
                 assignments.iter().find_map(|a| {
                     {
@@ -167,7 +167,7 @@ fn is_placehold(e: &Expr, i: usize) -> bool {
     }
 }
 
-fn expr_find(expr: &Expr, i: usize) -> eyre::Result<Option<String>> {
+fn name_from_expr(expr: &Expr, i: usize) -> eyre::Result<Option<String>> {
     fn name_expr(e: &Expr) -> eyre::Result<String> {
         Ok(match e {
             Expr::CompoundIdentifier(idents) => idents
@@ -198,9 +198,9 @@ fn expr_find(expr: &Expr, i: usize) -> eyre::Result<Option<String>> {
         Expr::BinaryOp { left, op, right } if is_placehold(right, i) => {
             Ok(Some(format!("{}_{}", name_op(op)?, name_expr(&left)?)))
         }
-        Expr::BinaryOp { left, op: _, right } => expr_find(&left, i)
+        Expr::BinaryOp { left, op: _, right } => name_from_expr(&left, i)
             .transpose()
-            .or_else(|| expr_find(&right, i).transpose())
+            .or_else(|| name_from_expr(&right, i).transpose())
             .transpose(),
         Expr::Like {
             negated: _,
