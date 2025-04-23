@@ -9,6 +9,7 @@ pub struct Column {
     pub type_oid: tokio_postgres::types::Oid,
     pub nullable: bool,
     pub position: i16,
+    pub is_unique: bool,
 }
 
 #[derive(Debug)]
@@ -50,12 +51,16 @@ pub async fn load_schema(c: &impl tokio_postgres::GenericClient) -> eyre::Result
                     .zip(r.type_oid.context("type_oid")?)
                     .zip(r.nullable.context("nullable")?)
                     .zip(r.column_position.context("column_position")?)
-                    .map(|(((name, type_oid), nullable), position)| Column {
-                        name,
-                        type_oid,
-                        nullable,
-                        position,
-                    })
+                    .zip(r.has_unique_index.context("has_unique_index")?)
+                    .map(
+                        |((((name, type_oid), nullable), position), is_unique)| Column {
+                            name,
+                            type_oid,
+                            nullable,
+                            position,
+                            is_unique,
+                        },
+                    )
                     .collect(),
             })
         })
