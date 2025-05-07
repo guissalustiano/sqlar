@@ -3,12 +3,12 @@
 > [!CAUTION]
 > This repo is a work in progress and is not ready to be used yet
 ## Plan
-Before publish I with improve the type analysis, infering the righ types to output.
-It's also planned to support domains and references with new types patters.
-And explore dimensional analysis with constraints to avoid return Vec to everthing
+Before publishing, I will improve the type analysis, inferring the right types to output.
+It's also planned to support domains and references with new types of patterns.
+And explore dimensional analysis with constraints to avoid returning Vec to everything.
 
 ## How to use?
-Write prepare statments in sql file aside your rust code
+Write prepared statements in a SQL file aside from your rust code.
 ```sql
 PREPARE find_user AS SELECT id, name FROM users WHERE id = $1;
 PREPARE list_users AS SELECT id, name FROM users;
@@ -17,7 +17,7 @@ PREPARE update_user AS UPDATE users SET name = $2 WHERE id = $1;
 PREPARE delete_user AS DELETE FROM users WHERE id = $1;
 ```
 
-When done, run the cli to generate the rust code
+When done, run the CLI to generate the rust code
 ```bash
   $ sqlc .
 ```
@@ -99,13 +99,13 @@ pub async fn delete_user(
 ```
 
 # Inspirations
-- [cornucopia](https://github.com/cornucopia-rs/cornucopia) - The first sql code gen for rust, but uses a slice different sql grammar with don't allows "copy-paste" to postgres
-- [diesel](https://github.com/cornucopia-rs/cornucopia) - Diesel had create a sql syntact anaylize using rust type system. This is awensome but the error generates are hard and slow to compile.
-- [sqlx](https://github.com/launchbadge/sqlx) - Proves that people want to write sql, but a inpure proc-macro makes cache compile harder. 
+- [cornucopia](https://github.com/cornucopia-rs/cornucopia) - The first SQL code gen for rust, but uses a slice different SQL grammar and doesn't allow "copy-paste" to Postgres.
+- [diesel](https://github.com/cornucopia-rs/cornucopia) - Diesel had created a SQL syntax analyzer using the Rust type system. This is spectacular, but the errors generated are hard and slow to compile.
+- [sqlx](https://github.com/launchbadge/sqlx) - Proves that people want to write SQL, but an impure proc-macro makes cache compile harder. 
 
-# Licences
-SQLc is licenced under AGPL-3.0.
+# Licenses
+SQLc is licensed under AGPL-3.0.
 You're free to use it to generate code for the Rust projects of your choice,
-even commercial.
+even commercials.
 
-The generated code is not licenced by AGPL-3.0.  
+The generated code is not licensed by AGPL-3.0.  
