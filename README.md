@@ -1,4 +1,5 @@
-# SQLc: SQL to type-safe rust code
+# SQLAR: SQL but better them fossil alternatives
+Type-safe rust code
 
 > [!CAUTION]
 > This repo is a work in progress and is not ready to be used yet
