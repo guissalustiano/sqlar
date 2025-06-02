@@ -18,6 +18,11 @@ pub struct Table {
     pub name: String,
     pub columns: Vec<Column>,
 }
+impl Table {
+    pub(crate) fn find_by_col_id(&self, column_id: i16) -> Option<&Column> {
+        self.columns.iter().find(|c| c.position == column_id)
+    }
+}
 #[derive(Debug)]
 pub struct Schema {
     pub tables: Vec<Table>,
@@ -30,9 +35,13 @@ impl Schema {
     ) -> Option<&Column> {
         self.tables.iter().find_map(|t| {
             (t.oid == table_oid)
-                .then(|| t.columns.iter().find(|c| c.position == column_id))
+                .then(|| t.find_by_col_id(column_id))
                 .flatten()
         })
+    }
+
+    pub(crate) fn find_table_by_name(&self, name: &str) -> Option<&Table> {
+        self.tables.iter().find(|t| t.name == name)
     }
 }
 

@@ -1,3 +1,4 @@
+#![feature(box_patterns)]
 use eyre::ContextCompat;
 use tokio::{
     fs::File,

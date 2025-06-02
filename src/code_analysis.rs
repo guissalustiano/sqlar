@@ -1,7 +1,7 @@
 use eyre::ContextCompat;
 use sqlparser::ast::{
-    Assignment, AssignmentTarget, BinaryOperator, Expr, ObjectName, ObjectNamePart, SetExpr,
-    Statement, Value, ValueWithSpan,
+    Assignment, AssignmentTarget, BinaryOperator, Expr, ObjectName, ObjectNamePart, Query, Select,
+    SetExpr, Statement, TableFactor, Value, ValueWithSpan,
 };
 
 use crate::schema::Schema;
@@ -75,6 +75,18 @@ fn infer_result_types(
     stmt: &Statement,
     schema: &Schema,
 ) -> eyre::Result<Vec<ColumnData>> {
+    let default = || {
+        ps.columns()
+            .iter()
+            .map(|c| {
+                Ok(ColumnData {
+                    name: c.name().to_owned(),
+                    type_: c.type_().to_owned(),
+                    is_nullable: true,
+                })
+            })
+            .collect()
+    };
     match stmt {
         // DML with returning clausure
         Statement::Delete(_) | Statement::Insert(_) | Statement::Update { .. }
@@ -98,17 +110,48 @@ fn infer_result_types(
                 })
                 .collect()
         }
-        _ => ps
-            .columns()
-            .iter()
-            .map(|c| {
-                Ok(ColumnData {
-                    name: c.name().to_owned(),
-                    type_: c.type_().to_owned(),
-                    is_nullable: true,
+        Statement::Query(box Query {
+            body: box SetExpr::Select(box Select { from, .. }),
+            ..
+        }) => {
+            let &[ref fs] = from.as_slice() else {
+                return default();
+            };
+            let TableFactor::Table { ref name, .. } = fs.relation else {
+                return default();
+            };
+            let &[ref name] = name.0.as_slice() else {
+                return default();
+            };
+            let name = name.to_string();
+            let table = schema
+                .find_table_by_name(&name)
+                .context("table not found")?;
+
+            ps.columns()
+                .iter()
+                .map(|c| {
+                    let sc = c
+                        .table_oid()
+                        .is_some_and(|t_oid| t_oid == table.oid)
+                        .then(|| c.column_id())
+                        .flatten()
+                        .map(|c_id| {
+                            table
+                                .find_by_col_id(c_id)
+                                .context("column not found in table")
+                        })
+                        .transpose()?;
+
+                    Ok(ColumnData {
+                        name: c.name().to_owned(),
+                        type_: c.type_().to_owned(),
+                        is_nullable: sc.map(|sc| sc.nullable).unwrap_or(true),
+                    })
                 })
-            })
-            .collect(),
+                .collect()
+        }
+        _ => default(),
     }
 }
 

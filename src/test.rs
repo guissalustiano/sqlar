@@ -71,7 +71,7 @@ async fn without_input() {
 
     insta::assert_snapshot!(rs, @r#"
     pub struct ListUsersRows {
-        pub id: Option<i32>,
+        pub id: i32,
         pub name: Option<String>,
     }
     pub async fn list_users(
@@ -104,7 +104,7 @@ async fn with_input() {
         pub eq_id: i32,
     }
     pub struct FindUserRows {
-        pub id: Option<i32>,
+        pub id: i32,
         pub name: Option<String>,
     }
     pub async fn find_user(
@@ -138,7 +138,7 @@ async fn with_input_right() {
         pub eq_id: i32,
     }
     pub struct FindUserRows {
-        pub id: Option<i32>,
+        pub id: i32,
         pub name: Option<String>,
     }
     pub async fn find_user(
@@ -173,7 +173,7 @@ async fn with_multiple_inputs() {
         pub like_name: String,
     }
     pub struct FindUserRows {
-        pub id: Option<i32>,
+        pub id: i32,
         pub name: Option<String>,
     }
     pub async fn find_user(
@@ -370,7 +370,7 @@ async fn multiple_prepare() {
 
     insta::assert_snapshot!(rs, @r#"
     pub struct ListUsersRows {
-        pub id: Option<i32>,
+        pub id: i32,
         pub name: Option<String>,
     }
     pub async fn list_users(
@@ -392,7 +392,7 @@ async fn multiple_prepare() {
         pub eq_id: i32,
     }
     pub struct FindUserRows {
-        pub id: Option<i32>,
+        pub id: i32,
         pub name: Option<String>,
     }
     pub async fn find_user(

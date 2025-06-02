@@ -28,7 +28,7 @@ pub struct FindUserParams {
     pub eq_id: i32,
 }
 pub struct FindUserRows {
-    pub id: Option<i32>,
+    pub id: i32,
     pub name: Option<String>,
 }
 pub async fn find_user(
@@ -48,7 +48,7 @@ pub async fn find_user(
 }
 
 pub struct ListUsersRows {
-    pub id: Option<i32>,
+    pub id: i32,
     pub name: Option<String>,
 }
 pub async fn list_users(
