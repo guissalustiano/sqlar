@@ -35,6 +35,8 @@ pub(crate) fn infer_output(stmt: &Statement, schema: &Schema) -> eyre::Result<Ve
                                 name: id.value.clone(),
                                 type_: Type::from_oid(column.type_oid).unwrap(),
                                 is_nullable: column.nullable,
+                                table_oid: Some(table.oid),
+                                column_position: Some(column.position),
                             })
                         }
                         e => eyre::bail!("unsupported {e}"),
