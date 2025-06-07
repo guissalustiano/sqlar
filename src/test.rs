@@ -117,6 +117,10 @@ mod select {
     // );
 
     t!(
+        multiple_tables,
+        "PREPARE a AS SELECT title, name FROM films, languages;"
+    );
+    t!(
         qualify_projection,
         "PREPARE a AS SELECT films.title FROM films;"
     );
