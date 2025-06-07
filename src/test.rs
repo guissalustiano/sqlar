@@ -54,13 +54,20 @@ const SEED_TABLES: &str = "
 CREATE TABLE films(
     film_id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     title TEXT NOT NULL,
-    description TEXT
+    description TEXT,
+    language_id integer NOT NULL,
+    original_language_id integer
+);
+
+CREATE TABLE languages (
+    language_id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    name text NOT NULL
 );
 ";
 
 async fn e2e(ps: &str) -> String {
     let (_c, t) = db_transaction().await;
-    t.execute(SEED_TABLES, &[]).await.unwrap();
+    t.batch_execute(SEED_TABLES).await.unwrap();
 
     let mut sql = std::io::Cursor::new(ps);
     let mut rs = std::io::Cursor::new(Vec::new());
@@ -147,7 +154,7 @@ t!(
 #[tokio::test]
 async fn fill_example() {
     let (_c, t) = db_transaction().await;
-    t.execute(SEED_TABLES, &[]).await.unwrap();
+    t.batch_execute(SEED_TABLES).await.unwrap();
 
     let mut sql = std::io::Cursor::new(include_str!("../examples/films.sql"));
     let mut rs = tokio::fs::File::create("./examples/films.rs")
