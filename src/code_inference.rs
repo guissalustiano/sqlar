@@ -5,6 +5,18 @@ use crate::{code_analysis::ColumnData, schema::Schema};
 
 pub(crate) fn infer_output(stmt: &Statement, schema: &Schema) -> eyre::Result<Vec<ColumnData>> {
     match stmt {
+        Statement::Delete(d) => match d.returning {
+            Some(_) => todo!(),
+            None => Ok(vec![]),
+        },
+        Statement::Insert(i) => match i.returning {
+            Some(_) => todo!(),
+            None => Ok(vec![]),
+        },
+        Statement::Update { returning, .. } => match returning {
+            Some(_) => todo!(),
+            None => Ok(vec![]),
+        },
         Statement::Query(q) => match &*q.body {
             sqlparser::ast::SetExpr::Select(select) => select
                 .projection

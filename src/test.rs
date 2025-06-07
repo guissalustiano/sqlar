@@ -126,7 +126,6 @@ async fn with_input() {
 }
 
 #[tokio::test]
-#[ignore]
 async fn with_input_right() {
     let rs = e2e(
         "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
@@ -161,7 +160,6 @@ async fn with_input_right() {
 }
 
 #[tokio::test]
-#[ignore]
 async fn with_multiple_inputs() {
     let rs = e2e(
         "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
@@ -200,7 +198,6 @@ async fn with_multiple_inputs() {
 }
 
 #[tokio::test]
-#[ignore]
 async fn insert() {
     let rs = e2e(
         "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
@@ -249,7 +246,6 @@ async fn insert_with_returning() {
 }
 
 #[tokio::test]
-#[ignore]
 async fn update() {
     let rs = e2e(
         "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
@@ -311,7 +307,6 @@ async fn update_with_return() {
 }
 
 #[tokio::test]
-#[ignore]
 async fn delete() {
     let rs = e2e(
         "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
