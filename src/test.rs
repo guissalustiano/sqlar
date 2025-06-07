@@ -54,7 +54,15 @@ const SEED_TABLES: &str = "
 CREATE TABLE films(
     film_id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     title TEXT NOT NULL,
-    description TEXT
+    description TEXT,
+    language_id integer NOT NULL,
+    original_language_id integer,
+);
+
+CREATE TABLE languages (
+    language_id integer DEFAULT nextval('public.language_language_id_seq'::regclass) NOT NULL,
+    name character(20) NOT NULL,
+    last_update timestamp with time zone DEFAULT now() NOT NULL
 );
 ";
 
