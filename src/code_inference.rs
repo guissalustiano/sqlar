@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use sqlparser::ast::{Expr, FromTable, Statement, TableObject};
 use tokio_postgres::types::Type;
 
@@ -70,6 +71,7 @@ fn resolve_select_item(
     schema: &Schema,
     f: &[sqlparser::ast::TableWithJoins],
 ) -> Result<ColumnData, eyre::Error> {
+    dbg!(si);
     match si {
         sqlparser::ast::SelectItem::UnnamedExpr(expr) => match expr {
             Expr::Identifier(id) => {
@@ -91,7 +93,34 @@ fn resolve_select_item(
                 let column = table.find_by_col_name(column_name).expect(column_name);
 
                 Ok(ColumnData {
-                    name: id.value.clone(),
+                    name: column_name.clone(),
+                    type_: Type::from_oid(column.type_oid).unwrap(),
+                    is_nullable: column.nullable,
+                    table_oid: Some(table.oid),
+                    column_position: Some(column.position),
+                })
+            }
+            Expr::CompoundIdentifier(ids) => {
+                let &[ref source, ref column] = ids.as_slice() else {
+                    eyre::bail!("unsupported more then 2 ids");
+                };
+                let column_name = &column.value;
+                let table = f
+                    .iter()
+                    .filter_map(|f| match &f.relation {
+                        sqlparser::ast::TableFactor::Table { name, .. } => {
+                            let table_name = &name.0.first().unwrap().as_ident().unwrap().value;
+                            (&source.value == table_name)
+                                .then(|| schema.find_table_by_name(table_name))
+                                .flatten()
+                        }
+                        _ => None,
+                    })
+                    .exactly_one()
+                    .unwrap();
+                let column = table.find_by_col_name(column_name).expect(column_name);
+                Ok(ColumnData {
+                    name: column_name.clone(),
                     type_: Type::from_oid(column.type_oid).unwrap(),
                     is_nullable: column.nullable,
                     table_oid: Some(table.oid),
