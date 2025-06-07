@@ -1,0 +1,22 @@
+---
+source: src/test.rs
+expression: rs
+---
+pub struct ARows {
+    pub title: String,
+    pub name: String,
+}
+pub async fn a(
+    c: &impl tokio_postgres::GenericClient,
+) -> Result<Vec<ARows>, tokio_postgres::Error> {
+    c.query("SELECT f.title, l.name FROM films AS f, languages AS l", &[])
+        .await
+        .map(|rs| {
+            rs.into_iter()
+                .map(|r| ARows {
+                    title: r.get(0),
+                    name: r.get(1),
+                })
+                .collect()
+        })
+}

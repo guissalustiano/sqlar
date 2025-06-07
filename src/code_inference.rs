@@ -75,29 +75,24 @@ fn resolve_select_item(
         sqlparser::ast::SelectItem::UnnamedExpr(expr) => match expr {
             Expr::Identifier(id) => {
                 let column_name = &id.value;
-                let table = f
-                    .first()
-                    .map(|f| match &f.relation {
+                f.iter()
+                    .filter_map(|f| match &f.relation {
                         sqlparser::ast::TableFactor::Table { name, .. } => {
                             let table_name = &name.0.first().unwrap().as_ident().unwrap().value;
-                            let table = schema.find_table_by_name(table_name).unwrap();
-
-                            Ok(table)
+                            schema.find_table_by_name(table_name).and_then(|t| {
+                                t.find_by_col_name(column_name).map(|c| ColumnData {
+                                    name: column_name.clone(),
+                                    type_: Type::from_oid(c.type_oid).unwrap(),
+                                    is_nullable: c.nullable,
+                                    table_oid: Some(t.oid),
+                                    column_position: Some(c.position),
+                                })
+                            })
                         }
-                        e => eyre::bail!("unsupported {e}"),
+                        _ => None,
                     })
-                    .unwrap()
-                    .unwrap();
-
-                let column = table.find_by_col_name(column_name).expect(column_name);
-
-                Ok(ColumnData {
-                    name: column_name.clone(),
-                    type_: Type::from_oid(column.type_oid).unwrap(),
-                    is_nullable: column.nullable,
-                    table_oid: Some(table.oid),
-                    column_position: Some(column.position),
-                })
+                    .exactly_one()
+                    .map_err(|_| eyre::eyre!("{column_name} not found or ambiguous"))
             }
             Expr::CompoundIdentifier(ids) => {
                 let &[ref source, ref column] = ids.as_slice() else {

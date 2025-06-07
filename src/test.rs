@@ -120,7 +120,16 @@ mod select {
         qualify_projection,
         "PREPARE a AS SELECT films.title FROM films;"
     );
-    t!(alias, "PREPARE a AS SELECT f.title FROM films as f;");
+    t!(alias_simple, "PREPARE a AS SELECT f.title FROM films as f;");
+
+    t!(
+        alias_unused,
+        "PREPARE a AS SELECT title, name FROM films as f, languages as l;"
+    );
+    t!(
+        alias_used,
+        "PREPARE a AS SELECT f.title, l.name FROM films as f, languages as l;"
+    );
 }
 
 mod insert {
