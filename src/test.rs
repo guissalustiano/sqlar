@@ -50,9 +50,12 @@ pub(crate) async fn db_transaction() -> (
     (c, t)
 }
 
-async fn e2e(ts: &str, ps: &str) -> String {
+const SEED_TABLES: &str =
+    "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);";
+
+async fn e2e(ps: &str) -> String {
     let (_c, t) = db_transaction().await;
-    t.execute(ts, &[]).await.unwrap();
+    t.execute(SEED_TABLES, &[]).await.unwrap();
 
     let mut sql = std::io::Cursor::new(ps);
     let mut rs = std::io::Cursor::new(Vec::new());
@@ -63,11 +66,7 @@ async fn e2e(ts: &str, ps: &str) -> String {
 
 #[tokio::test]
 async fn without_input() {
-    let rs = e2e(
-        "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
-        "PREPARE list_users AS SELECT id, name FROM users;",
-    )
-    .await;
+    let rs = e2e("PREPARE list_users AS SELECT id, name FROM users;").await;
 
     insta::assert_snapshot!(rs, @r#"
     pub struct ListUsersRows {
@@ -93,11 +92,7 @@ async fn without_input() {
 
 #[tokio::test]
 async fn with_input() {
-    let rs = e2e(
-        "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
-        "PREPARE find_user AS SELECT id, name FROM users where id = $1;",
-    )
-    .await;
+    let rs = e2e("PREPARE find_user AS SELECT id, name FROM users where id = $1;").await;
 
     insta::assert_snapshot!(rs, @r#"
     pub struct FindUserParams {
@@ -127,11 +122,7 @@ async fn with_input() {
 
 #[tokio::test]
 async fn with_input_right() {
-    let rs = e2e(
-        "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
-        "PREPARE find_user AS SELECT id, name FROM users where $1 = id;",
-    )
-    .await;
+    let rs = e2e("PREPARE find_user AS SELECT id, name FROM users where $1 = id;").await;
 
     insta::assert_snapshot!(rs, @r#"
     pub struct FindUserParams {
@@ -161,11 +152,8 @@ async fn with_input_right() {
 
 #[tokio::test]
 async fn with_multiple_inputs() {
-    let rs = e2e(
-        "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
-        "PREPARE find_user AS SELECT id, name FROM users WHERE id > $1 AND name LIKE $2;",
-    )
-    .await;
+    let rs = e2e("PREPARE find_user AS SELECT id, name FROM users WHERE id > $1 AND name LIKE $2;")
+        .await;
 
     insta::assert_snapshot!(rs, @r#"
     pub struct FindUserParams {
@@ -199,11 +187,7 @@ async fn with_multiple_inputs() {
 
 #[tokio::test]
 async fn insert() {
-    let rs = e2e(
-        "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
-        "PREPARE create_user AS INSERT INTO users(name) VALUES ($1);",
-    )
-    .await;
+    let rs = e2e("PREPARE create_user AS INSERT INTO users(name) VALUES ($1);").await;
 
     insta::assert_snapshot!(rs, @r#"
     pub struct CreateUserParams {
@@ -220,11 +204,7 @@ async fn insert() {
 
 #[tokio::test]
 async fn insert_with_returning() {
-    let rs = e2e(
-        "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
-        "PREPARE create_user AS INSERT INTO users(name) VALUES ($1) RETURNING id;",
-    )
-    .await;
+    let rs = e2e("PREPARE create_user AS INSERT INTO users(name) VALUES ($1) RETURNING id;").await;
 
     insta::assert_snapshot!(rs, @r#"
     pub struct CreateUserParams {
@@ -246,11 +226,7 @@ async fn insert_with_returning() {
 
 #[tokio::test]
 async fn update() {
-    let rs = e2e(
-        "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
-        "PREPARE update_user AS UPDATE users SET name = $2 WHERE id = $1;",
-    )
-    .await;
+    let rs = e2e("PREPARE update_user AS UPDATE users SET name = $2 WHERE id = $1;").await;
 
     insta::assert_snapshot!(rs, @r#"
     pub struct UpdateUserParams {
@@ -268,11 +244,9 @@ async fn update() {
 
 #[tokio::test]
 async fn update_with_return() {
-    let rs = e2e(
-        "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
-        "PREPARE update_user AS UPDATE users SET name = $2 WHERE id = $1 RETURNING id, name;",
-    )
-    .await;
+    let rs =
+        e2e("PREPARE update_user AS UPDATE users SET name = $2 WHERE id = $1 RETURNING id, name;")
+            .await;
 
     insta::assert_snapshot!(rs, @r#"
     pub struct UpdateUserParams {
@@ -306,11 +280,7 @@ async fn update_with_return() {
 
 #[tokio::test]
 async fn delete() {
-    let rs = e2e(
-        "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
-        "PREPARE delete_user AS DELETE FROM users WHERE id = $1",
-    )
-    .await;
+    let rs = e2e("PREPARE delete_user AS DELETE FROM users WHERE id = $1").await;
 
     insta::assert_snapshot!(rs, @r#"
     pub struct DeleteUserParams {
@@ -327,11 +297,7 @@ async fn delete() {
 
 #[tokio::test]
 async fn delete_with_return() {
-    let rs = e2e(
-        "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
-        "PREPARE delete_user AS DELETE FROM users WHERE id = $1 returning id, name",
-    )
-    .await;
+    let rs = e2e("PREPARE delete_user AS DELETE FROM users WHERE id = $1 returning id, name").await;
 
     insta::assert_snapshot!(rs, @r#"
     pub struct DeleteUserParams {
@@ -361,11 +327,8 @@ async fn delete_with_return() {
 
 #[tokio::test]
 async fn multiple_prepare() {
-    let rs = e2e(
-        "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
-        "PREPARE list_users AS SELECT id, name FROM users;
-         PREPARE find_user AS SELECT id, name FROM users where id = $1;",
-    )
+    let rs = e2e("PREPARE list_users AS SELECT id, name FROM users;
+         PREPARE find_user AS SELECT id, name FROM users where id = $1;")
     .await;
 
     insta::assert_snapshot!(rs, @r#"
@@ -416,12 +379,7 @@ async fn multiple_prepare() {
 #[tokio::test]
 async fn fill_example() {
     let (_c, t) = db_transaction().await;
-    t.execute(
-        "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
-        &[],
-    )
-    .await
-    .unwrap();
+    t.execute(SEED_TABLES, &[]).await.unwrap();
 
     let mut sql = std::io::Cursor::new(include_str!("../examples/users.sql"));
     let mut rs = tokio::fs::File::create("./examples/users.rs")
