@@ -50,8 +50,13 @@ pub(crate) async fn db_transaction() -> (
     (c, t)
 }
 
-const SEED_TABLES: &str =
-    "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);";
+const SEED_TABLES: &str = "
+CREATE TABLE films(
+    film_id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    title TEXT NOT NULL,
+    description TEXT
+);
+";
 
 async fn e2e(ps: &str) -> String {
     let (_c, t) = db_transaction().await;
@@ -64,325 +69,88 @@ async fn e2e(ps: &str) -> String {
     String::from_utf8(rs.into_inner()).unwrap()
 }
 
-#[tokio::test]
-async fn without_input() {
-    let rs = e2e("PREPARE list_users AS SELECT id, name FROM users;").await;
-
-    insta::assert_snapshot!(rs, @r#"
-    pub struct ListUsersRows {
-        pub id: i32,
-        pub name: Option<String>,
-    }
-    pub async fn list_users(
-        c: &impl tokio_postgres::GenericClient,
-    ) -> Result<Vec<ListUsersRows>, tokio_postgres::Error> {
-        c.query("SELECT id, name FROM users", &[])
-            .await
-            .map(|rs| {
-                rs.into_iter()
-                    .map(|r| ListUsersRows {
-                        id: r.get(0),
-                        name: r.get(1),
-                    })
-                    .collect()
-            })
-    }
-    "#);
+macro_rules! t {
+    ($fname:ident, $arg:literal) => {
+        #[tokio::test]
+        async fn $fname() {
+            let rs = crate::test::e2e($arg).await;
+            insta::assert_snapshot!(rs);
+        }
+    };
 }
 
-#[tokio::test]
-async fn with_input() {
-    let rs = e2e("PREPARE find_user AS SELECT id, name FROM users where id = $1;").await;
+mod select {
+    t!(
+        without_input,
+        "PREPARE list_films AS SELECT film_id, title FROM films;"
+    );
 
-    insta::assert_snapshot!(rs, @r#"
-    pub struct FindUserParams {
-        pub eq_id: i32,
-    }
-    pub struct FindUserRows {
-        pub id: i32,
-        pub name: Option<String>,
-    }
-    pub async fn find_user(
-        c: &impl tokio_postgres::GenericClient,
-        p: FindUserParams,
-    ) -> Result<Vec<FindUserRows>, tokio_postgres::Error> {
-        c.query("SELECT id, name FROM users WHERE id = $1", &[&p.eq_id])
-            .await
-            .map(|rs| {
-                rs.into_iter()
-                    .map(|r| FindUserRows {
-                        id: r.get(0),
-                        name: r.get(1),
-                    })
-                    .collect()
-            })
-    }
-    "#);
+    t!(
+        with_input,
+        "PREPARE find_film AS SELECT film_id, title FROM films where film_id = $1;"
+    );
+
+    t!(
+        with_input_right,
+        "PREPARE find_film AS SELECT film_id, title FROM films where $1 = film_id;"
+    );
+
+    t!(
+        with_multiple_inputs,
+        "PREPARE find_film AS SELECT film_id, title FROM films WHERE film_id > $1 AND title LIKE $2;"
+    );
 }
 
-#[tokio::test]
-async fn with_input_right() {
-    let rs = e2e("PREPARE find_user AS SELECT id, name FROM users where $1 = id;").await;
+mod insert {
+    t!(
+        basic,
+        "PREPARE create_film AS INSERT INTO films(title) VALUES ($1);"
+    );
 
-    insta::assert_snapshot!(rs, @r#"
-    pub struct FindUserParams {
-        pub eq_id: i32,
-    }
-    pub struct FindUserRows {
-        pub id: i32,
-        pub name: Option<String>,
-    }
-    pub async fn find_user(
-        c: &impl tokio_postgres::GenericClient,
-        p: FindUserParams,
-    ) -> Result<Vec<FindUserRows>, tokio_postgres::Error> {
-        c.query("SELECT id, name FROM users WHERE $1 = id", &[&p.eq_id])
-            .await
-            .map(|rs| {
-                rs.into_iter()
-                    .map(|r| FindUserRows {
-                        id: r.get(0),
-                        name: r.get(1),
-                    })
-                    .collect()
-            })
-    }
-    "#);
+    t!(
+        with_returning,
+        "PREPARE create_film AS INSERT INTO films(title) VALUES ($1) RETURNING film_id;"
+    );
 }
 
-#[tokio::test]
-async fn with_multiple_inputs() {
-    let rs = e2e("PREPARE find_user AS SELECT id, name FROM users WHERE id > $1 AND name LIKE $2;")
-        .await;
+mod update {
+    t!(
+        basic,
+        "PREPARE update_user AS UPDATE films SET title = $2 WHERE film_id = $1;"
+    );
 
-    insta::assert_snapshot!(rs, @r#"
-    pub struct FindUserParams {
-        pub gt_id: i32,
-        pub like_name: String,
-    }
-    pub struct FindUserRows {
-        pub id: i32,
-        pub name: Option<String>,
-    }
-    pub async fn find_user(
-        c: &impl tokio_postgres::GenericClient,
-        p: FindUserParams,
-    ) -> Result<Vec<FindUserRows>, tokio_postgres::Error> {
-        c.query(
-                "SELECT id, name FROM users WHERE id > $1 AND name LIKE $2",
-                &[&p.gt_id, &p.like_name],
-            )
-            .await
-            .map(|rs| {
-                rs.into_iter()
-                    .map(|r| FindUserRows {
-                        id: r.get(0),
-                        name: r.get(1),
-                    })
-                    .collect()
-            })
-    }
-    "#);
+    t!(
+        with_return,
+        "PREPARE update_user AS UPDATE films SET title = $2 WHERE film_id = $1 RETURNING film_id, title;"
+    );
 }
 
-#[tokio::test]
-async fn insert() {
-    let rs = e2e("PREPARE create_user AS INSERT INTO users(name) VALUES ($1);").await;
+mod delete {
 
-    insta::assert_snapshot!(rs, @r#"
-    pub struct CreateUserParams {
-        pub name: String,
-    }
-    pub async fn create_user(
-        c: &impl tokio_postgres::GenericClient,
-        p: CreateUserParams,
-    ) -> Result<u64, tokio_postgres::Error> {
-        c.execute("INSERT INTO users (name) VALUES ($1)", &[&p.name]).await
-    }
-    "#);
+    t!(
+        basic,
+        "PREPARE delete_user AS DELETE FROM films WHERE film_id = $1"
+    );
+
+    t!(
+        with_return,
+        "PREPARE delete_user AS DELETE FROM films WHERE film_id = $1 returning film_id, title"
+    );
 }
 
-#[tokio::test]
-async fn insert_with_returning() {
-    let rs = e2e("PREPARE create_user AS INSERT INTO users(name) VALUES ($1) RETURNING id;").await;
-
-    insta::assert_snapshot!(rs, @r#"
-    pub struct CreateUserParams {
-        pub name: String,
-    }
-    pub struct CreateUserRows {
-        pub id: i32,
-    }
-    pub async fn create_user(
-        c: &impl tokio_postgres::GenericClient,
-        p: CreateUserParams,
-    ) -> Result<Vec<CreateUserRows>, tokio_postgres::Error> {
-        c.query("INSERT INTO users (name) VALUES ($1) RETURNING id", &[&p.name])
-            .await
-            .map(|rs| { rs.into_iter().map(|r| CreateUserRows { id: r.get(0) }).collect() })
-    }
-    "#);
-}
-
-#[tokio::test]
-async fn update() {
-    let rs = e2e("PREPARE update_user AS UPDATE users SET name = $2 WHERE id = $1;").await;
-
-    insta::assert_snapshot!(rs, @r#"
-    pub struct UpdateUserParams {
-        pub eq_id: i32,
-        pub set_name: String,
-    }
-    pub async fn update_user(
-        c: &impl tokio_postgres::GenericClient,
-        p: UpdateUserParams,
-    ) -> Result<u64, tokio_postgres::Error> {
-        c.execute("UPDATE users SET name = $2 WHERE id = $1", &[&p.eq_id, &p.set_name]).await
-    }
-    "#);
-}
-
-#[tokio::test]
-async fn update_with_return() {
-    let rs =
-        e2e("PREPARE update_user AS UPDATE users SET name = $2 WHERE id = $1 RETURNING id, name;")
-            .await;
-
-    insta::assert_snapshot!(rs, @r#"
-    pub struct UpdateUserParams {
-        pub eq_id: i32,
-        pub set_name: String,
-    }
-    pub struct UpdateUserRows {
-        pub id: i32,
-        pub name: Option<String>,
-    }
-    pub async fn update_user(
-        c: &impl tokio_postgres::GenericClient,
-        p: UpdateUserParams,
-    ) -> Result<Vec<UpdateUserRows>, tokio_postgres::Error> {
-        c.query(
-                "UPDATE users SET name = $2 WHERE id = $1 RETURNING id, name",
-                &[&p.eq_id, &p.set_name],
-            )
-            .await
-            .map(|rs| {
-                rs.into_iter()
-                    .map(|r| UpdateUserRows {
-                        id: r.get(0),
-                        name: r.get(1),
-                    })
-                    .collect()
-            })
-    }
-    "#);
-}
-
-#[tokio::test]
-async fn delete() {
-    let rs = e2e("PREPARE delete_user AS DELETE FROM users WHERE id = $1").await;
-
-    insta::assert_snapshot!(rs, @r#"
-    pub struct DeleteUserParams {
-        pub eq_id: i32,
-    }
-    pub async fn delete_user(
-        c: &impl tokio_postgres::GenericClient,
-        p: DeleteUserParams,
-    ) -> Result<u64, tokio_postgres::Error> {
-        c.execute("DELETE FROM users WHERE id = $1", &[&p.eq_id]).await
-    }
-    "#);
-}
-
-#[tokio::test]
-async fn delete_with_return() {
-    let rs = e2e("PREPARE delete_user AS DELETE FROM users WHERE id = $1 returning id, name").await;
-
-    insta::assert_snapshot!(rs, @r#"
-    pub struct DeleteUserParams {
-        pub eq_id: i32,
-    }
-    pub struct DeleteUserRows {
-        pub id: i32,
-        pub name: Option<String>,
-    }
-    pub async fn delete_user(
-        c: &impl tokio_postgres::GenericClient,
-        p: DeleteUserParams,
-    ) -> Result<Vec<DeleteUserRows>, tokio_postgres::Error> {
-        c.query("DELETE FROM users WHERE id = $1 RETURNING id, name", &[&p.eq_id])
-            .await
-            .map(|rs| {
-                rs.into_iter()
-                    .map(|r| DeleteUserRows {
-                        id: r.get(0),
-                        name: r.get(1),
-                    })
-                    .collect()
-            })
-    }
-    "#);
-}
-
-#[tokio::test]
-async fn multiple_prepare() {
-    let rs = e2e("PREPARE list_users AS SELECT id, name FROM users;
-         PREPARE find_user AS SELECT id, name FROM users where id = $1;")
-    .await;
-
-    insta::assert_snapshot!(rs, @r#"
-    pub struct ListUsersRows {
-        pub id: i32,
-        pub name: Option<String>,
-    }
-    pub async fn list_users(
-        c: &impl tokio_postgres::GenericClient,
-    ) -> Result<Vec<ListUsersRows>, tokio_postgres::Error> {
-        c.query("SELECT id, name FROM users", &[])
-            .await
-            .map(|rs| {
-                rs.into_iter()
-                    .map(|r| ListUsersRows {
-                        id: r.get(0),
-                        name: r.get(1),
-                    })
-                    .collect()
-            })
-    }
-
-    pub struct FindUserParams {
-        pub eq_id: i32,
-    }
-    pub struct FindUserRows {
-        pub id: i32,
-        pub name: Option<String>,
-    }
-    pub async fn find_user(
-        c: &impl tokio_postgres::GenericClient,
-        p: FindUserParams,
-    ) -> Result<Vec<FindUserRows>, tokio_postgres::Error> {
-        c.query("SELECT id, name FROM users WHERE id = $1", &[&p.eq_id])
-            .await
-            .map(|rs| {
-                rs.into_iter()
-                    .map(|r| FindUserRows {
-                        id: r.get(0),
-                        name: r.get(1),
-                    })
-                    .collect()
-            })
-    }
-    "#);
-}
+t!(
+    multiple_prepare,
+    "PREPARE list_films AS SELECT film_id, title FROM films;
+     PREPARE find_user AS SELECT film_id, title FROM films where film_id = $1;"
+);
 
 #[tokio::test]
 async fn fill_example() {
     let (_c, t) = db_transaction().await;
     t.execute(SEED_TABLES, &[]).await.unwrap();
 
-    let mut sql = std::io::Cursor::new(include_str!("../examples/users.sql"));
-    let mut rs = tokio::fs::File::create("./examples/users.rs")
+    let mut sql = std::io::Cursor::new(include_str!("../examples/films.sql"));
+    let mut rs = tokio::fs::File::create("./examples/films.rs")
         .await
         .unwrap();
     translate_file(&t, &mut sql, &mut rs).await.unwrap();

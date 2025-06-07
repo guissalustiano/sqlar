@@ -1,0 +1,22 @@
+---
+source: src/test.rs
+expression: rs
+---
+pub struct ListFilmsRows {
+    pub film_id: i32,
+    pub title: String,
+}
+pub async fn list_films(
+    c: &impl tokio_postgres::GenericClient,
+) -> Result<Vec<ListFilmsRows>, tokio_postgres::Error> {
+    c.query("SELECT film_id, title FROM films", &[])
+        .await
+        .map(|rs| {
+            rs.into_iter()
+                .map(|r| ListFilmsRows {
+                    film_id: r.get(0),
+                    title: r.get(1),
+                })
+                .collect()
+        })
+}

@@ -1,0 +1,45 @@
+---
+source: src/test.rs
+expression: rs
+---
+pub struct ListFilmsRows {
+    pub film_id: i32,
+    pub title: String,
+}
+pub async fn list_films(
+    c: &impl tokio_postgres::GenericClient,
+) -> Result<Vec<ListFilmsRows>, tokio_postgres::Error> {
+    c.query("SELECT film_id, title FROM films", &[])
+        .await
+        .map(|rs| {
+            rs.into_iter()
+                .map(|r| ListFilmsRows {
+                    film_id: r.get(0),
+                    title: r.get(1),
+                })
+                .collect()
+        })
+}
+
+pub struct FindUserParams {
+    pub eq_film_id: i32,
+}
+pub struct FindUserRows {
+    pub film_id: i32,
+    pub title: String,
+}
+pub async fn find_user(
+    c: &impl tokio_postgres::GenericClient,
+    p: FindUserParams,
+) -> Result<Vec<FindUserRows>, tokio_postgres::Error> {
+    c.query("SELECT film_id, title FROM films WHERE film_id = $1", &[&p.eq_film_id])
+        .await
+        .map(|rs| {
+            rs.into_iter()
+                .map(|r| FindUserRows {
+                    film_id: r.get(0),
+                    title: r.get(1),
+                })
+                .collect()
+        })
+}

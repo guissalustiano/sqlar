@@ -1,0 +1,18 @@
+---
+source: src/test.rs
+expression: rs
+---
+pub struct UpdateUserParams {
+    pub eq_film_id: i32,
+    pub set_title: String,
+}
+pub async fn update_user(
+    c: &impl tokio_postgres::GenericClient,
+    p: UpdateUserParams,
+) -> Result<u64, tokio_postgres::Error> {
+    c.execute(
+            "UPDATE films SET title = $2 WHERE film_id = $1",
+            &[&p.eq_film_id, &p.set_title],
+        )
+        .await
+}

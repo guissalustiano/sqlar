@@ -1,0 +1,13 @@
+---
+source: src/test.rs
+expression: rs
+---
+pub struct CreateFilmParams {
+    pub title: String,
+}
+pub async fn create_film(
+    c: &impl tokio_postgres::GenericClient,
+    p: CreateFilmParams,
+) -> Result<u64, tokio_postgres::Error> {
+    c.execute("INSERT INTO films (title) VALUES ($1)", &[&p.title]).await
+}

@@ -1,0 +1,24 @@
+---
+source: src/test.rs
+expression: rs
+---
+pub struct CreateFilmParams {
+    pub title: String,
+}
+pub struct CreateFilmRows {
+    pub film_id: i32,
+}
+pub async fn create_film(
+    c: &impl tokio_postgres::GenericClient,
+    p: CreateFilmParams,
+) -> Result<Vec<CreateFilmRows>, tokio_postgres::Error> {
+    c.query("INSERT INTO films (title) VALUES ($1) RETURNING film_id", &[&p.title])
+        .await
+        .map(|rs| {
+            rs.into_iter()
+                .map(|r| CreateFilmRows {
+                    film_id: r.get(0),
+                })
+                .collect()
+        })
+}

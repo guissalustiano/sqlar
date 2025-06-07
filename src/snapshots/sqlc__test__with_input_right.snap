@@ -1,0 +1,26 @@
+---
+source: src/test.rs
+expression: rs
+---
+pub struct FindFilmParams {
+    pub eq_film_id: i32,
+}
+pub struct FindFilmRows {
+    pub film_id: i32,
+    pub title: String,
+}
+pub async fn find_film(
+    c: &impl tokio_postgres::GenericClient,
+    p: FindFilmParams,
+) -> Result<Vec<FindFilmRows>, tokio_postgres::Error> {
+    c.query("SELECT film_id, title FROM films WHERE $1 = film_id", &[&p.eq_film_id])
+        .await
+        .map(|rs| {
+            rs.into_iter()
+                .map(|r| FindFilmRows {
+                    film_id: r.get(0),
+                    title: r.get(1),
+                })
+                .collect()
+        })
+}

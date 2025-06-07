@@ -1,0 +1,13 @@
+---
+source: src/test.rs
+expression: rs
+---
+pub struct DeleteUserParams {
+    pub eq_film_id: i32,
+}
+pub async fn delete_user(
+    c: &impl tokio_postgres::GenericClient,
+    p: DeleteUserParams,
+) -> Result<u64, tokio_postgres::Error> {
+    c.execute("DELETE FROM films WHERE film_id = $1", &[&p.eq_film_id]).await
+}
