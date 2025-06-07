@@ -106,6 +106,21 @@ mod select {
         with_multiple_inputs,
         "PREPARE find_film AS SELECT film_id, title FROM films WHERE film_id > $1 AND title LIKE $2;"
     );
+
+    t!(
+        full_qualify_from,
+        "PREPARE a AS SELECT films.title FROM public.films;"
+    );
+
+    // t!(
+    //     qualify_projection,
+    //     "PREPARE a AS SELECT films.title FROM films;"
+    // );
+    // t!(
+    //     full_qualify_projection,
+    //     "PREPARE a AS SELECT public.films.title FROM films;"
+    // );
+    // t!(alias, "PREPARE a AS SELECT f.title FROM films as f;");
 }
 
 mod insert {
