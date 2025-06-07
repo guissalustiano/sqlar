@@ -1,4 +1,3 @@
-#![feature(box_patterns)]
 use eyre::ContextCompat;
 use tokio::{
     fs::File,
@@ -7,6 +6,7 @@ use tokio::{
 
 mod code_analysis;
 mod code_gen;
+mod code_inference;
 mod schema;
 #[cfg(test)]
 mod test;

@@ -22,6 +22,10 @@ impl Table {
     pub(crate) fn find_by_col_id(&self, column_id: i16) -> Option<&Column> {
         self.columns.iter().find(|c| c.position == column_id)
     }
+
+    pub(crate) fn find_by_col_name(&self, column_name: &str) -> Option<&Column> {
+        self.columns.iter().find(|c| c.name == column_name)
+    }
 }
 #[derive(Debug)]
 pub struct Schema {

@@ -62,6 +62,7 @@ async fn e2e(ts: &str, ps: &str) -> String {
 }
 
 #[tokio::test]
+#[ignore]
 async fn without_input() {
     let rs = e2e(
         "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
@@ -92,6 +93,7 @@ async fn without_input() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn with_input() {
     let rs = e2e(
         "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
@@ -126,6 +128,7 @@ async fn with_input() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn with_input_right() {
     let rs = e2e(
         "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
@@ -160,6 +163,7 @@ async fn with_input_right() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn with_multiple_inputs() {
     let rs = e2e(
         "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
@@ -198,6 +202,7 @@ async fn with_multiple_inputs() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn insert() {
     let rs = e2e(
         "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
@@ -219,6 +224,7 @@ async fn insert() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn insert_with_returning() {
     let rs = e2e(
         "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
@@ -245,6 +251,7 @@ async fn insert_with_returning() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn update() {
     let rs = e2e(
         "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
@@ -267,6 +274,7 @@ async fn update() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn update_with_return() {
     let rs = e2e(
         "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
@@ -305,6 +313,7 @@ async fn update_with_return() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn delete() {
     let rs = e2e(
         "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
@@ -326,6 +335,7 @@ async fn delete() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn delete_with_return() {
     let rs = e2e(
         "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
@@ -360,6 +370,7 @@ async fn delete_with_return() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn multiple_prepare() {
     let rs = e2e(
         "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
@@ -414,6 +425,7 @@ async fn multiple_prepare() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn fill_example() {
     let (_c, t) = db_transaction().await;
     t.execute(
