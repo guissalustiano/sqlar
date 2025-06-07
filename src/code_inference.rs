@@ -3,7 +3,7 @@ use tokio_postgres::types::Type;
 
 use crate::{code_analysis::ColumnData, schema::Schema};
 
-fn infer_output(stmt: &Statement, schema: &Schema) -> eyre::Result<Vec<ColumnData>> {
+pub(crate) fn infer_output(stmt: &Statement, schema: &Schema) -> eyre::Result<Vec<ColumnData>> {
     match stmt {
         Statement::Query(q) => match &*q.body {
             sqlparser::ast::SetExpr::Select(select) => select

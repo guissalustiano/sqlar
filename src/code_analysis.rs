@@ -4,8 +4,6 @@ use sqlparser::ast::{
     Statement, Value, ValueWithSpan,
 };
 
-use crate::schema::Schema;
-
 pub struct InputData {
     pub name: String,
     pub type_: tokio_postgres::types::Type,
@@ -47,6 +45,14 @@ pub(crate) async fn prepare_stmts(
             eyre::bail!("sql files should contains only prepare statements, found {stmt}");
         };
         let ps = client.prepare(&statement.to_string()).await?;
+        let result_types = crate::code_inference::infer_output(&statement, &schema)?;
+
+        debug_assert!(
+            result_types
+                .iter()
+                .zip(ps.columns())
+                .all(|(inferred, db)| &inferred.type_ == db.type_())
+        );
 
         Ok(PrepareStatement {
             name: name.value,
@@ -62,97 +68,12 @@ pub(crate) async fn prepare_stmts(
                     })
                 })
                 .collect::<eyre::Result<_>>()?,
-            result_types: infer_result_types(&ps, &statement, &schema)?,
+            result_types,
             statement,
         })
     });
 
     futures::future::try_join_all(futs).await
-}
-
-fn infer_result_types(
-    ps: &tokio_postgres::Statement,
-    stmt: &Statement,
-    schema: &Schema,
-) -> eyre::Result<Vec<ColumnData>> {
-    let default = || {
-        ps.columns()
-            .iter()
-            .map(|c| {
-                Ok(ColumnData {
-                    name: c.name().to_owned(),
-                    type_: c.type_().to_owned(),
-                    is_nullable: true,
-                })
-            })
-            .collect()
-    };
-    match stmt {
-        // DML with returning clausure
-        Statement::Delete(_) | Statement::Insert(_) | Statement::Update { .. }
-            if !ps.columns().is_empty() =>
-        {
-            ps.columns()
-                .iter()
-                .map(|c| {
-                    let sc = schema
-                        .find_column_by_id(
-                            c.table_oid().context("table_oid empty")?,
-                            c.column_id().context("column empty")?,
-                        )
-                        .context("column not found")?;
-
-                    Ok(ColumnData {
-                        name: c.name().to_owned(),
-                        type_: c.type_().to_owned(),
-                        is_nullable: sc.nullable,
-                    })
-                })
-                .collect()
-        }
-        // Statement::Query(box Query {
-        //     body: box SetExpr::Select(box Select { from, .. }),
-        //     ..
-        // }) => {
-        //     let &[ref fs] = from.as_slice() else {
-        //         return default();
-        //     };
-        //     let TableFactor::Table { ref name, .. } = fs.relation else {
-        //         return default();
-        //     };
-        //     let &[ref name] = name.0.as_slice() else {
-        //         return default();
-        //     };
-        //     let name = name.to_string();
-        //     let table = schema
-        //         .find_table_by_name(&name)
-        //         .context("table not found")?;
-
-        //     ps.columns()
-        //         .iter()
-        //         .map(|c| {
-        //             let sc = c
-        //                 .table_oid()
-        //                 .is_some_and(|t_oid| t_oid == table.oid)
-        //                 .then(|| c.column_id())
-        //                 .flatten()
-        //                 .map(|c_id| {
-        //                     table
-        //                         .find_by_col_id(c_id)
-        //                         .context("column not found in table")
-        //                 })
-        //                 .transpose()?;
-
-        //             Ok(ColumnData {
-        //                 name: c.name().to_owned(),
-        //                 type_: c.type_().to_owned(),
-        //                 is_nullable: sc.map(|sc| sc.nullable).unwrap_or(true),
-        //             })
-        //         })
-        //         .collect()
-        // }
-        _ => default(),
-    }
 }
 
 fn calc_client_method(ps: &tokio_postgres::Statement, stmt: &Statement) -> ClientMethod {

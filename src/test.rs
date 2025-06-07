@@ -62,7 +62,6 @@ async fn e2e(ts: &str, ps: &str) -> String {
 }
 
 #[tokio::test]
-#[ignore]
 async fn without_input() {
     let rs = e2e(
         "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
@@ -93,7 +92,6 @@ async fn without_input() {
 }
 
 #[tokio::test]
-#[ignore]
 async fn with_input() {
     let rs = e2e(
         "CREATE TABLE users(id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, name TEXT);",
