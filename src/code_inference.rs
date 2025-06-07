@@ -71,7 +71,6 @@ fn resolve_select_item(
     schema: &Schema,
     f: &[sqlparser::ast::TableWithJoins],
 ) -> Result<ColumnData, eyre::Error> {
-    dbg!(si);
     match si {
         sqlparser::ast::SelectItem::UnnamedExpr(expr) => match expr {
             Expr::Identifier(id) => {
@@ -108,9 +107,10 @@ fn resolve_select_item(
                 let table = f
                     .iter()
                     .filter_map(|f| match &f.relation {
-                        sqlparser::ast::TableFactor::Table { name, .. } => {
+                        sqlparser::ast::TableFactor::Table { name, alias, .. } => {
                             let table_name = &name.0.first().unwrap().as_ident().unwrap().value;
-                            (&source.value == table_name)
+                            let alias = alias.as_ref().map(|a| a.name.value.as_str());
+                            (Some(source.value.as_str()) == alias || &source.value == table_name)
                                 .then(|| schema.find_table_by_name(table_name))
                                 .flatten()
                         }
