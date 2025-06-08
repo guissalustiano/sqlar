@@ -1,4 +1,6 @@
-use itertools::Itertools;
+use std::collections::HashMap;
+
+use eyre::eyre;
 use sqlparser::ast::{Expr, FromTable, Statement, TableObject};
 use tokio_postgres::types::Type;
 
@@ -71,51 +73,38 @@ fn resolve_select_item(
     schema: &Schema,
     f: &[sqlparser::ast::TableWithJoins],
 ) -> Result<ColumnData, eyre::Error> {
+    let tables = f
+        .iter()
+        .flat_map(|f| std::iter::once(resolve_tables(schema, &f.relation)))
+        .collect::<HashMap<_, _>>();
+
+    let columns = tables
+        .values()
+        .flat_map(|t| t.columns.iter().map(move |c| (c.name.as_str(), (t, c))))
+        .collect::<HashMap<_, _>>();
+
     match si {
         sqlparser::ast::SelectItem::UnnamedExpr(expr) => match expr {
             Expr::Identifier(id) => {
-                let column_name = &id.value;
-                f.iter()
-                    .filter_map(|f| match &f.relation {
-                        sqlparser::ast::TableFactor::Table { name, .. } => {
-                            let table_name = &name.0.first().unwrap().as_ident().unwrap().value;
-                            schema.find_table_by_name(table_name).and_then(|t| {
-                                t.find_by_col_name(column_name).map(|c| ColumnData {
-                                    name: column_name.clone(),
-                                    type_: Type::from_oid(c.type_oid).unwrap(),
-                                    is_nullable: c.nullable,
-                                    table_oid: Some(t.oid),
-                                    column_position: Some(c.position),
-                                })
-                            })
-                        }
-                        _ => None,
-                    })
-                    .exactly_one()
-                    .map_err(|_| eyre::eyre!("{column_name} not found or ambiguous"))
+                let (table, column) = columns.get(id.value.as_str()).expect(&id.value);
+                Ok(ColumnData {
+                    name: column.name.clone(),
+                    type_: Type::from_oid(column.type_oid).unwrap(),
+                    is_nullable: column.nullable,
+                    table_oid: Some(table.oid),
+                    column_position: Some(column.position),
+                })
             }
             Expr::CompoundIdentifier(ids) => {
-                let &[ref source, ref column] = ids.as_slice() else {
+                let &[ref table_id, ref column_id] = ids.as_slice() else {
                     eyre::bail!("unsupported more then 2 ids");
                 };
-                let column_name = &column.value;
-                let table = f
-                    .iter()
-                    .filter_map(|f| match &f.relation {
-                        sqlparser::ast::TableFactor::Table { name, alias, .. } => {
-                            let table_name = &name.0.first().unwrap().as_ident().unwrap().value;
-                            let alias = alias.as_ref().map(|a| a.name.value.as_str());
-                            (Some(source.value.as_str()) == alias || &source.value == table_name)
-                                .then(|| schema.find_table_by_name(table_name))
-                                .flatten()
-                        }
-                        _ => None,
-                    })
-                    .exactly_one()
-                    .unwrap();
-                let column = table.find_by_col_name(column_name).expect(column_name);
+                let table = tables.get(table_id.value.as_str()).expect(&table_id.value);
+                let column = table
+                    .find_by_col_name(&column_id.value)
+                    .expect(&column_id.value);
                 Ok(ColumnData {
-                    name: column_name.clone(),
+                    name: column.name.clone(),
                     type_: Type::from_oid(column.type_oid).unwrap(),
                     is_nullable: column.nullable,
                     table_oid: Some(table.oid),
@@ -125,5 +114,26 @@ fn resolve_select_item(
             e => eyre::bail!("unsupported {e}"),
         },
         e => eyre::bail!("unsupported {e}"),
+    }
+}
+
+fn resolve_tables<'a>(
+    schema: &'a Schema,
+    t: &'a sqlparser::ast::TableFactor,
+) -> (&'a str, &'a crate::schema::Table) {
+    match t {
+        sqlparser::ast::TableFactor::Table { name, alias, .. } => {
+            let table_name = name.0.first().unwrap().as_ident().unwrap().value.as_str();
+            let table = schema
+                .find_table_by_name(table_name)
+                .ok_or_else(|| eyre!("table {table_name} not found on schema"))
+                .unwrap();
+            match alias {
+                Some(alias) => (alias.name.value.as_str(), table),
+                None => (table_name, table),
+            }
+        }
+
+        _ => todo!(),
     }
 }
