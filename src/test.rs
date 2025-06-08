@@ -166,6 +166,12 @@ mod select {
         );
     }
 
+    mod _const {
+        t!(basic, "PREPARE a AS SELECT 1");
+        t!(alias, "PREPARE a AS SELECT 2 as two");
+        t!(null, "PREPARE a AS SELECT NULL");
+    }
+
     mod aggregations {}
     mod common_table_expressions {}
     mod subquery {}

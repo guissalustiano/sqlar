@@ -23,6 +23,13 @@ impl ColumnData {
             is_nullable: self.is_nullable,
         }
     }
+    pub(crate) fn with_name(self, name: String) -> Self {
+        Self {
+            name,
+            type_: self.type_,
+            is_nullable: self.is_nullable,
+        }
+    }
 }
 
 pub enum ClientMethod {

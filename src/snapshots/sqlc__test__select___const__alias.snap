@@ -1,0 +1,14 @@
+---
+source: src/test.rs
+expression: rs
+---
+pub struct ARows {
+    pub two: i32,
+}
+pub async fn a(
+    c: &impl tokio_postgres::GenericClient,
+) -> Result<Vec<ARows>, tokio_postgres::Error> {
+    c.query("SELECT 2 AS two", &[])
+        .await
+        .map(|rs| { rs.into_iter().map(|r| ARows { two: r.get(0) }).collect() })
+}

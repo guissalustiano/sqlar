@@ -1,0 +1,14 @@
+---
+source: src/test.rs
+expression: rs
+---
+pub struct ARows {
+    pub _NULL: Option<String>,
+}
+pub async fn a(
+    c: &impl tokio_postgres::GenericClient,
+) -> Result<Vec<ARows>, tokio_postgres::Error> {
+    c.query("SELECT NULL", &[])
+        .await
+        .map(|rs| { rs.into_iter().map(|r| ARows { _NULL: r.get(0) }).collect() })
+}

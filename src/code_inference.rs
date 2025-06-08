@@ -101,6 +101,9 @@ fn resolve_select_item(
 
     match si {
         SelectItem::UnnamedExpr(expr) => resolve_expr(&tables, &columns, expr),
+        SelectItem::ExprWithAlias { expr, alias } => {
+            resolve_expr(&tables, &columns, expr).map(|c| c.with_name(alias.value.clone()))
+        }
         e => eyre::bail!("unsupported {e}"),
     }
 }
@@ -139,6 +142,37 @@ fn resolve_expr(
             data_type,
             format: _,
         } => resolve_expr(tables, columns, expr).map(|c| c.with_type(to_pg_type(data_type))),
+        Expr::Value(v) => {
+            let (type_, is_nullable) = match &v.value {
+                sqlparser::ast::Value::Number(v, _) => {
+                    if v.parse::<i32>().is_ok() {
+                        (Type::INT4, false)
+                    } else {
+                        (Type::NUMERIC, false)
+                    }
+                }
+                sqlparser::ast::Value::SingleQuotedString(_)
+                | sqlparser::ast::Value::DollarQuotedString(_)
+                | sqlparser::ast::Value::EscapedStringLiteral(_)
+                | sqlparser::ast::Value::UnicodeStringLiteral(_)
+                | sqlparser::ast::Value::SingleQuotedByteStringLiteral(_)
+                | sqlparser::ast::Value::DoubleQuotedByteStringLiteral(_)
+                | sqlparser::ast::Value::NationalStringLiteral(_)
+                | sqlparser::ast::Value::HexStringLiteral(_)
+                | sqlparser::ast::Value::DoubleQuotedString(_) => (Type::TEXT, false),
+                sqlparser::ast::Value::Boolean(_) => (Type::BOOL, false),
+                sqlparser::ast::Value::Null => (Type::TEXT, true), // TODO: This should be a never type
+                sqlparser::ast::Value::Placeholder(_) => todo!("place_holder_prepare"),
+                _ => {
+                    unreachable!("not supported on postgres")
+                }
+            };
+            Ok(ColumnData {
+                type_,
+                name: format!("_{}", v.value),
+                is_nullable,
+            })
+        }
         e => eyre::bail!("unsupported {e}"),
     }
 }
