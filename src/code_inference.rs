@@ -81,7 +81,9 @@ fn resolve_select_item(
                     JoinOperator::Join(_) | JoinOperator::Inner(_) | JoinOperator::CrossJoin => {
                         schema
                     }
-                    JoinOperator::Left(_) => Box::leak(Box::new(schema.all_nullable())),
+                    JoinOperator::Left(_) | JoinOperator::LeftOuter(_) => {
+                        Box::leak(Box::new(schema.all_nullable()))
+                    }
                     _ => todo!(),
                 };
                 resolve_tables(schema, &t.relation)

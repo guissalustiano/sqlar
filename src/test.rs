@@ -144,6 +144,15 @@ mod select {
             left_join_using,
             "PREPARE a AS SELECT title, name FROM films LEFT JOIN languages using (language_id);"
         );
+
+        t!(
+            join_using,
+            "PREPARE a AS SELECT title, name FROM films JOIN languages using (language_id);"
+        );
+        t!(
+            inner_join_using,
+            "PREPARE a AS SELECT title, name FROM films INNER JOIN languages using (language_id);"
+        );
     }
 }
 
