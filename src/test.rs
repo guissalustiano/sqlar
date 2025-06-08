@@ -154,6 +154,23 @@ mod select {
             "PREPARE a AS SELECT title, name FROM films INNER JOIN languages using (language_id);"
         );
     }
+
+    mod cast {
+        t!(
+            double_column,
+            "PREPARE a AS SELECT language_id::text from films"
+        );
+        t!(
+            cast_as,
+            "PREPARE a AS SELECT CAST(language_id AS text) from films"
+        );
+    }
+
+    mod aggregations {}
+    mod common_table_expressions {}
+    mod subquery {}
+    mod windows {}
+    mod case {}
 }
 
 mod insert {

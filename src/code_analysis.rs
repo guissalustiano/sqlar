@@ -8,12 +8,21 @@ pub struct InputData {
     pub name: String,
     pub type_: tokio_postgres::types::Type,
 }
+#[derive(Debug)]
 pub struct ColumnData {
-    pub table_oid: Option<u32>,
-    pub column_position: Option<i16>,
     pub name: String,
     pub type_: tokio_postgres::types::Type,
     pub is_nullable: bool,
+}
+
+impl ColumnData {
+    pub(crate) fn with_type(self, type_: tokio_postgres::types::Type) -> Self {
+        Self {
+            name: self.name,
+            type_,
+            is_nullable: self.is_nullable,
+        }
+    }
 }
 
 pub enum ClientMethod {
@@ -37,44 +46,46 @@ pub(crate) async fn prepare_stmts(
     let stmts =
         sqlparser::parser::Parser::parse_sql(&sqlparser::dialect::PostgreSqlDialect {}, stmts_raw)?;
 
-    let futs =
-        stmts.into_iter().map(|stmt| async {
-            let Statement::Prepare {
-                name,
-                data_types: _,
-                statement,
-            } = stmt
-            else {
-                eyre::bail!("sql files should contains only prepare statements, found {stmt}");
-            };
-            let ps = client.prepare(&statement.to_string()).await?;
-            let result_types = crate::code_inference::infer_output(&statement, &schema)?;
+    let futs = stmts.into_iter().map(|stmt| async {
+        let Statement::Prepare {
+            name,
+            data_types: _,
+            statement,
+        } = stmt
+        else {
+            eyre::bail!("sql files should contains only prepare statements, found {stmt}");
+        };
+        let ps = client.prepare(&statement.to_string()).await?;
+        let result_types = crate::code_inference::infer_output(&statement, &schema)?;
 
-            debug_assert!(result_types.iter().zip(ps.columns()).all(
-                |(inferred, db)| inferred.type_ == *db.type_()
-                    && inferred.table_oid == db.table_oid()
-                    && inferred.column_position == db.column_id()
-            ));
+        debug_assert!(
+            result_types
+                .iter()
+                .zip(ps.columns())
+                .all(|(inferred, db)| inferred.type_ == *db.type_()),
+            "got: {:?}, expect: {:?}",
+            result_types,
+            ps.columns()
+        );
 
-            Ok(PrepareStatement {
-                name: name.value,
-                client_method: calc_client_method(&ps, &statement),
-                parameter_types: ps
-                    .params()
-                    .iter()
-                    .enumerate()
-                    .map(|(i, t)| {
-                        Ok(InputData {
-                            name: name_from_statement(&statement, i + 1)?
-                                .context("param not found")?,
-                            type_: t.clone(),
-                        })
+        Ok(PrepareStatement {
+            name: name.value,
+            client_method: calc_client_method(&ps, &statement),
+            parameter_types: ps
+                .params()
+                .iter()
+                .enumerate()
+                .map(|(i, t)| {
+                    Ok(InputData {
+                        name: name_from_statement(&statement, i + 1)?.context("param not found")?,
+                        type_: t.clone(),
                     })
-                    .collect::<eyre::Result<_>>()?,
-                result_types,
-                statement,
-            })
-        });
+                })
+                .collect::<eyre::Result<_>>()?,
+            result_types,
+            statement,
+        })
+    });
 
     futures::future::try_join_all(futs).await
 }

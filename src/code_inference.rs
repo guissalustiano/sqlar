@@ -1,7 +1,10 @@
 use std::collections::HashMap;
 
 use eyre::eyre;
-use sqlparser::ast::{Expr, FromTable, JoinOperator, Statement, TableObject};
+use sqlparser::ast::{
+    CharacterLength, Expr, FromTable, JoinOperator, SelectItem, Statement, TableObject,
+    TimezoneInfo,
+};
 use tokio_postgres::types::Type;
 
 use crate::{code_analysis::ColumnData, schema::Schema};
@@ -97,36 +100,87 @@ fn resolve_select_item(
         .collect::<HashMap<_, _>>();
 
     match si {
-        sqlparser::ast::SelectItem::UnnamedExpr(expr) => match expr {
-            Expr::Identifier(id) => {
-                let (table, column) = columns.get(id.value.as_str()).expect(&id.value);
-                Ok(ColumnData {
-                    name: column.name.clone(),
-                    type_: Type::from_oid(column.type_oid).unwrap(),
-                    is_nullable: column.nullable,
-                    table_oid: Some(table.oid),
-                    column_position: Some(column.position),
-                })
-            }
-            Expr::CompoundIdentifier(ids) => {
-                let &[ref table_id, ref column_id] = ids.as_slice() else {
-                    eyre::bail!("unsupported more then 2 ids");
-                };
-                let table = tables.get(table_id.value.as_str()).expect(&table_id.value);
-                let column = table
-                    .find_by_col_name(&column_id.value)
-                    .expect(&column_id.value);
-                Ok(ColumnData {
-                    name: column.name.clone(),
-                    type_: Type::from_oid(column.type_oid).unwrap(),
-                    is_nullable: column.nullable,
-                    table_oid: Some(table.oid),
-                    column_position: Some(column.position),
-                })
-            }
-            e => eyre::bail!("unsupported {e}"),
-        },
+        SelectItem::UnnamedExpr(expr) => resolve_expr(&tables, &columns, expr),
         e => eyre::bail!("unsupported {e}"),
+    }
+}
+
+fn resolve_expr(
+    tables: &HashMap<&str, &crate::schema::Table>,
+    columns: &HashMap<&str, (&&crate::schema::Table, &crate::schema::Column)>,
+    expr: &Expr,
+) -> Result<ColumnData, eyre::Error> {
+    match expr {
+        Expr::Identifier(id) => {
+            let (_table, column) = columns.get(id.value.as_str()).expect(&id.value);
+            Ok(ColumnData {
+                name: column.name.clone(),
+                type_: Type::from_oid(column.type_oid).unwrap(),
+                is_nullable: column.nullable,
+            })
+        }
+        Expr::CompoundIdentifier(ids) => {
+            let &[ref table_id, ref column_id] = ids.as_slice() else {
+                eyre::bail!("unsupported more then 2 ids");
+            };
+            let table = tables.get(table_id.value.as_str()).expect(&table_id.value);
+            let column = table
+                .find_by_col_name(&column_id.value)
+                .expect(&column_id.value);
+            Ok(ColumnData {
+                name: column.name.clone(),
+                type_: Type::from_oid(column.type_oid).unwrap(),
+                is_nullable: column.nullable,
+            })
+        }
+        Expr::Cast {
+            kind: _,
+            expr,
+            data_type,
+            format: _,
+        } => resolve_expr(tables, columns, expr).map(|c| c.with_type(to_pg_type(data_type))),
+        e => eyre::bail!("unsupported {e}"),
+    }
+}
+
+fn to_pg_type(data_type: &sqlparser::ast::DataType) -> Type {
+    use sqlparser::ast::DataType::*;
+    match data_type {
+        Char(None)
+        | Char(Some(CharacterLength::IntegerLength { length: 1, unit: _ }))
+        | Character(None)
+        | Character(Some(CharacterLength::IntegerLength { length: 1, unit: _ })) => Type::CHAR,
+        Char(_) | Character(_) => Type::BPCHAR,
+        CharacterVarying(_) | CharVarying(_) | Varchar(_) => Type::VARCHAR,
+        Uuid => Type::UUID,
+        Bytea => Type::BYTEA,
+        Int2(None) | SmallInt(None) => todo!(),
+        Int(None) | Int4(None) | Integer(None) => Type::INT4,
+        Int8(None) | BigInt(None) => todo!(),
+        Float4 | Real => Type::FLOAT4,
+        Float8 | DoublePrecision => Type::FLOAT8,
+        Bool | Boolean => Type::BOOL,
+        Date => Type::DATE,
+        Time(_, TimezoneInfo::None | TimezoneInfo::WithoutTimeZone) => Type::TIME,
+        Time(_, TimezoneInfo::Tz | TimezoneInfo::WithTimeZone) => Type::TIMETZ,
+        Timestamp(_, TimezoneInfo::None | TimezoneInfo::WithoutTimeZone) => Type::TIMESTAMP,
+        Timestamp(_, TimezoneInfo::Tz | TimezoneInfo::WithTimeZone) => Type::TIMESTAMPTZ,
+        Interval => Type::INTERVAL,
+        JSON => Type::JSON,
+        JSONB => Type::JSONB,
+        Numeric(_) | Decimal(_) => Type::NUMERIC,
+        Text => Type::TEXT,
+        Bit(None) => Type::BIT,
+        Bit(_) | BitVarying(_) | VarBit(_) => Type::VARBIT,
+        Custom(_object_name, _items) => todo!("custom type"),
+        Array(_array_elem_type_def) => todo!("array"),
+        Enum(_, _) | Trigger => todo!("wtf is that"),
+        Regclass => todo!("wtf is that?"),
+        GeometricType(_) => todo!("wtf is that?"),
+        Table(_) => unreachable!("not used in this context"),
+        _ => {
+            unreachable!("not supported on postgres")
+        }
     }
 }
 
