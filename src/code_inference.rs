@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use eyre::eyre;
-use sqlparser::ast::{Expr, FromTable, Statement, TableObject};
+use sqlparser::ast::{Expr, FromTable, JoinOperator, Statement, TableObject};
 use tokio_postgres::types::Type;
 
 use crate::{code_analysis::ColumnData, schema::Schema};
@@ -71,11 +71,22 @@ pub(crate) fn infer_output(stmt: &Statement, schema: &Schema) -> eyre::Result<Ve
 fn resolve_select_item(
     si: &sqlparser::ast::SelectItem,
     schema: &Schema,
-    f: &[sqlparser::ast::TableWithJoins],
+    ts: &[sqlparser::ast::TableWithJoins],
 ) -> Result<ColumnData, eyre::Error> {
-    let tables = f
+    let tables = ts
         .iter()
-        .flat_map(|f| std::iter::once(resolve_tables(schema, &f.relation)))
+        .flat_map(|t| {
+            std::iter::once(resolve_tables(schema, &t.relation)).chain(t.joins.iter().map(|t| {
+                let schema = match &t.join_operator {
+                    JoinOperator::Join(_) | JoinOperator::Inner(_) | JoinOperator::CrossJoin => {
+                        schema
+                    }
+                    JoinOperator::Left(_) => Box::leak(Box::new(schema.all_nullable())),
+                    _ => todo!(),
+                };
+                resolve_tables(schema, &t.relation)
+            }))
+        })
         .collect::<HashMap<_, _>>();
 
     let columns = tables

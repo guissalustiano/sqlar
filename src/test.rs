@@ -134,6 +134,17 @@ mod select {
         alias_used,
         "PREPARE a AS SELECT f.title, l.name FROM films as f, languages as l;"
     );
+    mod join {
+        t!(
+            left_join_on,
+            "PREPARE a AS SELECT f.title, l.name FROM films as f LEFT JOIN languages as l on f.language_id = l.language_id;"
+        );
+
+        t!(
+            left_join_using,
+            "PREPARE a AS SELECT title, name FROM films LEFT JOIN languages using (language_id);"
+        );
+    }
 }
 
 mod insert {

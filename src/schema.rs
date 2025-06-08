@@ -47,6 +47,30 @@ impl Schema {
     pub(crate) fn find_table_by_name(&self, name: &str) -> Option<&Table> {
         self.tables.iter().find(|t| t.name == name)
     }
+
+    pub(crate) fn all_nullable(&self) -> Self {
+        Self {
+            tables: self
+                .tables
+                .iter()
+                .map(|t| Table {
+                    oid: t.oid,
+                    name: t.name.clone(),
+                    columns: t
+                        .columns
+                        .iter()
+                        .map(|c| Column {
+                            name: c.name.clone(),
+                            type_oid: c.type_oid,
+                            nullable: true,
+                            position: c.position,
+                            is_unique: c.is_unique,
+                        })
+                        .collect(),
+                })
+                .collect(),
+        }
+    }
 }
 
 pub async fn load_schema(c: &impl tokio_postgres::GenericClient) -> eyre::Result<Schema> {
