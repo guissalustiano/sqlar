@@ -1,6 +1,5 @@
 ---
 source: src/test.rs
-assertion_line: 180
 expression: rs
 ---
 pub struct ARows {
@@ -10,7 +9,7 @@ pub struct ARows {
 pub async fn a(
     c: &impl tokio_postgres::GenericClient,
 ) -> Result<Vec<ARows>, tokio_postgres::Error> {
-    c.query("SELECT language_id, count(1) FROM films GROUP BY 1", &[])
+    c.query("SELECT language_id, count(1) OVER () FROM films GROUP BY 1", &[])
         .await
         .map(|rs| {
             rs.into_iter()
