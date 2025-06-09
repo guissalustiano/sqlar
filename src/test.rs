@@ -172,6 +172,10 @@ mod select {
         t!(null, "PREPARE a AS SELECT NULL");
     }
 
+    mod func {
+        t!(pi, "PREPARE a AS SELECT pi()");
+    }
+
     mod aggregations {}
     mod common_table_expressions {}
     mod subquery {}

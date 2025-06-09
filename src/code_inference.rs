@@ -100,15 +100,16 @@ fn resolve_select_item(
         .collect::<HashMap<_, _>>();
 
     match si {
-        SelectItem::UnnamedExpr(expr) => resolve_expr(&tables, &columns, expr),
+        SelectItem::UnnamedExpr(expr) => resolve_expr(&schema, &tables, &columns, expr),
         SelectItem::ExprWithAlias { expr, alias } => {
-            resolve_expr(&tables, &columns, expr).map(|c| c.with_name(alias.value.clone()))
+            resolve_expr(&schema, &tables, &columns, expr).map(|c| c.with_name(alias.value.clone()))
         }
         e => eyre::bail!("unsupported {e}"),
     }
 }
 
 fn resolve_expr(
+    schema: &Schema,
     tables: &HashMap<&str, &crate::schema::Table>,
     columns: &HashMap<&str, (&&crate::schema::Table, &crate::schema::Column)>,
     expr: &Expr,
@@ -141,7 +142,9 @@ fn resolve_expr(
             expr,
             data_type,
             format: _,
-        } => resolve_expr(tables, columns, expr).map(|c| c.with_type(to_pg_type(data_type))),
+        } => {
+            resolve_expr(&schema, tables, columns, expr).map(|c| c.with_type(to_pg_type(data_type)))
+        }
         Expr::Value(v) => {
             let (type_, is_nullable) = match &v.value {
                 sqlparser::ast::Value::Number(v, _) => {
@@ -170,6 +173,39 @@ fn resolve_expr(
             Ok(ColumnData {
                 type_,
                 name: format!("_{}", v.value),
+                is_nullable,
+            })
+        }
+        Expr::Function(f) => {
+            let func_name = f.name.to_string();
+            let func = schema
+                .find_func_by_name(&func_name)
+                .ok_or_else(|| eyre!("func {func_name} not found"))?;
+            let is_nullable = match &f.parameters {
+                sqlparser::ast::FunctionArguments::None => false,
+                sqlparser::ast::FunctionArguments::Subquery(_query) => true, // TODO: analyze subquery
+                sqlparser::ast::FunctionArguments::List(al) => match al.args.as_slice() {
+                    &[] => false,
+                    &[ref arg] => match arg {
+                        sqlparser::ast::FunctionArg::Unnamed(arg) => match arg {
+                            sqlparser::ast::FunctionArgExpr::Expr(expr) => {
+                                resolve_expr(schema, tables, columns, expr)?.is_nullable
+                            }
+                            sqlparser::ast::FunctionArgExpr::QualifiedWildcard(_) => {
+                                todo!("wtf how should I handle that?")
+                            }
+                            sqlparser::ast::FunctionArgExpr::Wildcard => {
+                                todo!("wtf how should I handle this?")
+                            }
+                        },
+                        e => eyre::bail!("unsupported {e}"),
+                    }, // TODO: analyze
+                    _ => false, // TODO: wtf how should I guess that?
+                },
+            };
+            Ok(ColumnData {
+                type_: Type::from_oid(func.return_type).expect("type not found"),
+                name: func.name.clone(),
                 is_nullable,
             })
         }

@@ -27,9 +27,16 @@ impl Table {
         self.columns.iter().find(|c| c.name == column_name)
     }
 }
+
+#[derive(Debug, Clone)]
+pub struct Func {
+    pub name: String,
+    pub return_type: tokio_postgres::types::Oid,
+}
 #[derive(Debug)]
 pub struct Schema {
     pub tables: Vec<Table>,
+    pub funcs: Vec<Func>,
 }
 impl Schema {
     pub(crate) fn find_column_by_id(
@@ -69,12 +76,18 @@ impl Schema {
                         .collect(),
                 })
                 .collect(),
+            funcs: self.funcs.clone(),
         }
+    }
+
+    pub(crate) fn find_func_by_name(&self, func_name: &str) -> Option<&Func> {
+        dbg!(&self.funcs);
+        self.funcs.iter().find(|f| f.name == func_name)
     }
 }
 
 pub async fn load_schema(c: &impl tokio_postgres::GenericClient) -> eyre::Result<Schema> {
-    query::load_schema(c)
+    let tables = query::load_schema(c)
         .await?
         .into_iter()
         .map(|r| {
@@ -101,6 +114,15 @@ pub async fn load_schema(c: &impl tokio_postgres::GenericClient) -> eyre::Result
                     .collect(),
             })
         })
-        .collect::<eyre::Result<_>>()
-        .map(|tables| Schema { tables })
+        .collect::<eyre::Result<_>>()?;
+    let funcs = query::load_funcs(c)
+        .await?
+        .into_iter()
+        .map(|r| Func {
+            name: r.function_name,
+            return_type: r.return_type,
+        })
+        .collect();
+
+    Ok(Schema { tables, funcs })
 }
