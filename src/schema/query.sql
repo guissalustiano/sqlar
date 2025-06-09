@@ -9,21 +9,18 @@ SELECT
     ARRAY_AGG(
         EXISTS (
             SELECT 1
-            FROM pg_catalog.pg_index ix
+            FROM pg_index ix
             WHERE ix.indrelid = c.oid
             AND ix.indisunique = true
             AND a.attnum = ANY(ix.indkey)
         )
     ) AS has_unique_index
 FROM
-    pg_catalog.pg_attribute a
-    JOIN pg_catalog.pg_class c ON a.attrelid = c.oid
-    JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
+    pg_attribute a
+    JOIN pg_class c ON a.attrelid = c.oid
 WHERE
     a.attnum > 0 -- Exclude system columns
     AND NOT a.attisdropped -- Exclude dropped columns
-    -- AND n.nspname NOT LIKE 'pg_%' -- Exclude system schemas
-    -- AND n.nspname != 'information_schema' -- Exclude information_schema
     AND c.relkind = 'r' -- Only regular tables (r), exclude views (v), etc.
 GROUP BY
     1;
@@ -33,7 +30,4 @@ SELECT
     p.proname AS function_name,
     p.prorettype AS return_type
 FROM
-    pg_catalog.pg_proc p
-    JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
--- WHERE
---     n.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast');
+    pg_proc p

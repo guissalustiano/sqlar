@@ -52,7 +52,9 @@ impl Schema {
     }
 
     pub(crate) fn find_table_by_name(&self, name: &str) -> Option<&Table> {
-        self.tables.iter().find(|t| t.name == name)
+        self.tables
+            .iter()
+            .find(|t| t.name.to_lowercase() == name.to_lowercase())
     }
 
     pub(crate) fn all_nullable(&self) -> Self {
@@ -81,8 +83,9 @@ impl Schema {
     }
 
     pub(crate) fn find_func_by_name(&self, func_name: &str) -> Option<&Func> {
-        dbg!(&self.funcs);
-        self.funcs.iter().find(|f| f.name == func_name)
+        self.funcs
+            .iter()
+            .find(|f| f.name.to_lowercase() == func_name.to_lowercase())
     }
 }
 
