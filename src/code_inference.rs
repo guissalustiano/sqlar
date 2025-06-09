@@ -199,7 +199,7 @@ fn resolve_expr(
                             }
                         },
                         e => eyre::bail!("unsupported {e}"),
-                    }, // TODO: analyze
+                    },
                     _ => false, // TODO: wtf how should I guess that?
                 },
             };

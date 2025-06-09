@@ -1,0 +1,23 @@
+---
+source: src/test.rs
+assertion_line: 184
+expression: rs
+---
+pub struct ARows {
+    pub language_id: i32,
+    pub count: i64,
+}
+pub async fn a(
+    c: &impl tokio_postgres::GenericClient,
+) -> Result<Vec<ARows>, tokio_postgres::Error> {
+    c.query("SELECT language_id, count(1) OVER () FROM films GROUP BY 1", &[])
+        .await
+        .map(|rs| {
+            rs.into_iter()
+                .map(|r| ARows {
+                    language_id: r.get(0),
+                    count: r.get(1),
+                })
+                .collect()
+        })
+}

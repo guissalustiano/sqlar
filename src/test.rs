@@ -176,10 +176,18 @@ mod select {
         t!(pi, "PREPARE a AS SELECT pi()");
     }
 
-    mod aggregations {}
+    mod aggregations {
+        t!(
+            count,
+            "PREPARE a AS SELECT language_id, count(1) from films group by 1"
+        );
+        t!(
+            count_windows,
+            "PREPARE a AS SELECT language_id, count(1) OVER () from films group by 1"
+        );
+    }
     mod common_table_expressions {}
     mod subquery {}
-    mod windows {}
     mod case {}
 }
 
